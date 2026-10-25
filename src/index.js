@@ -8,7 +8,7 @@ const run=async(e,q,...p)=>db(e,q,...p).run();
 async function audit(e,action,id='',detail=''){await run(e,'INSERT INTO audit(id,action,entity_id,detail,at) VALUES(?,?,?,?,?)',uuid(),action,id,String(detail).slice(0,300),utc());}
 async function isPaused(e){return (await row(e,"SELECT value FROM settings WHERE key='paused'"))?.value!=='false';}
 const seeds=['Perjuangan ibu membesarkan keluarga','Persahabatan yang diuji oleh rahasia','Pilihan berat seorang pahlawan orisinal','Warung keluarga menghadapi penutupan','Misteri fiksi tetangga baru'];
-const mtext='@cf/meta/llama-3.1-8b-instruct-fp8'; // verified free-compatible non-reasoning JSON response
+const mtext='@cf/google/gemma-4-26b-a4b-it'; // JSON/Indonesian schema verified against Cloudflare Workers AI
 const mimage='@cf/black-forest-labs/flux-1-schnell';
 function aiPrompt(channel,format,topic){return [
  'You are a professional original fiction writer for '+CHANNELS[channel].label+'.',
@@ -39,8 +39,15 @@ export async function makeDraft(e,channel,format,topic){
  const leader=savedStrategy?.value?JSON.parse(savedStrategy.value).recommendedTopic:null;
  const selected=String(topic||'').slice(0,150).trim()||leader||((await row(e,'SELECT topic FROM trends ORDER BY created_at DESC LIMIT 1'))?.topic)||CHANNELS[channel].topic;
  if(detectRisk(selected))throw Error('Topik berisiko hak cipta');
- const result=await e.AI.run(mtext,{messages:[{role:'system',content:'You write original fictional entertainment in JSON only.'},{role:'user',content:aiPrompt(channel,format,selected)}],max_tokens:2048,temperature:0.7});
- const cr=parseAI(result?.response||result?.output_text||result?.text);
+ let cr=null,lastError='';
+ for(const model of [mtext,'@cf/meta/llama-3.1-8b-instruct-fp8']){
+  try{
+   const result=await e.AI.run(model,{messages:[{role:'system',content:'You write ORIGINAL Indonesian fictional entertainment. Output only valid JSON with title,story,caption,imagePrompt, no markdown or commentary.'},{role:'user',content:aiPrompt(channel,format,selected)}],max_tokens:2500,temperature:0.4});
+   const text=result?.response||result?.choices?.[0]?.message?.content||result?.output_text||result?.text||'';
+   cr=parseAI(text); break;
+  }catch(err){lastError=String(err).slice(0,120);}
+ }
+ if(!cr)throw Error('Model AI gagal memberi JSON lengkap: '+lastError);
  const id=uuid();let mediaKey=null,mediaType=null,issue='';
  if(format==='PHOTO'||format==='COMIC'||format==='VIDEO'){
   if(!e.MEDIA){issue='MEDIA_STORAGE_NOT_ENABLED';}else{

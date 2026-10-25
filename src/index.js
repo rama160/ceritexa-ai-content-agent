@@ -40,7 +40,7 @@ export async function makeDraft(e,channel,format,topic){
  const result=await e.AI.run(mtext,{messages:[{role:'system',content:'You write original fictional entertainment in JSON only.'},{role:'user',content:aiPrompt(channel,format,selected)}],max_tokens:2048,temperature:0.7});
  const cr=parseAI(result?.response||result?.output_text||result?.text);
  const id=uuid();let mediaKey=null,mediaType=null,issue='';
- if(format==='PHOTO'||format==='COMIC'){
+ if(format==='PHOTO'||format==='COMIC'||format==='VIDEO'){
   if(!e.MEDIA){issue='MEDIA_STORAGE_NOT_ENABLED';}else{
    try{
     const im=await e.AI.run(mimage,{prompt:cr.imagePrompt,steps:4});
@@ -52,7 +52,7 @@ export async function makeDraft(e,channel,format,topic){
    }catch(err){issue='IMAGE_GENERATION_FAILED';await audit(e,'IMAGE_ERROR',id,String(err));}
   }
  }
- if(format==='VIDEO')issue='VIDEO_RENDER_REQUIRED';
+ if(format==='VIDEO')issue=mediaKey?'VIDEO_RENDER_REQUIRED':'VIDEO_IMAGE_REQUIRED';
  await run(e,`INSERT INTO posts(id,channel,format,title,story,caption,topic,image_prompt,media_key,media_type,state,license_ok,risk_note,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
  id,channel,format,cr.title,cr.story,cr.caption,selected,cr.imagePrompt,mediaKey,mediaType,issue?'BLOCKED':'PENDING_REVIEW',0,issue,utc(),utc());
  await audit(e,'DRAFT_CREATED',id,channel+'/'+format);
@@ -192,12 +192,14 @@ async function api(path,opts={}){if(!token)throw Error('Masukkan ADMIN_TOKEN');c
 async function action(path,data){return api(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data||{})})}
 async function work(fn){el('notice').textContent='Menjalankan...';try{const v=await fn();el('notice').textContent=JSON.stringify(v).slice(0,250);await refresh();}catch(e){el('notice').textContent='Error: '+e.message}}
 async function refresh(){const [s,p,t]=await Promise.all([api('status'),api('posts'),api('trends')]);el('status').innerHTML='<div class="card">Mode: <b>'+safe(s.paused?'PAUSED':'REVIEW')+'</b></div><div class="card">Publication: <b>'+safe(s.publicationEnabled?'Configured':'DISABLED')+'</b></div><div class="card">Media: <b>'+safe(s.mediaReady?'ready ('+s.mediaBackend+')':'not enabled')+'</b></div><div class="card">Drafts: <b>'+safe(p.posts.length)+'</b></div>';
-el('posts').innerHTML=p.posts.length?p.posts.map(x=>'<article><span class="tag">'+safe(x.channel)+' · '+safe(x.format)+' · '+safe(x.state)+'</span><h3>'+safe(x.title)+'</h3><p>'+safe(x.caption)+'</p><details><summary>Baca naskah</summary><p>'+safe(x.story)+'</p></details><small>'+safe(x.risk_note||'')+'</small><div class="bar"><button data-approve="'+safe(x.id)+'">Setujui</button><button data-schedule="'+safe(x.id)+'">Jadwalkan +1 hari</button></div></article>').join(''):'<p class="muted">Belum ada konten.</p>';
+el('posts').innerHTML=p.posts.length?p.posts.map(x=>'<article><span class="tag">'+safe(x.channel)+' · '+safe(x.format)+' · '+safe(x.state)+'</span><h3>'+safe(x.title)+'</h3><p>'+safe(x.caption)+'</p><details><summary>Baca naskah</summary><p>'+safe(x.story)+'</p></details><small>'+safe(x.risk_note||'')+'</small><div class="bar">'+(x.media_key?'<button data-view="'+safe(x.id)+'">Lihat media</button>':'')+(x.format!=='TEXT'&&['BLOCKED','PENDING_REVIEW'].includes(x.state)?'<input type="file" data-file="'+safe(x.id)+'" accept="'+(x.format==='VIDEO'?'video/mp4':'image/jpeg,image/png')+'"><button data-upload="'+safe(x.id)+'">Tambah media</button>':'')+(x.state==='PENDING_REVIEW'?'<button data-approve="'+safe(x.id)+'">Setujui setelah review</button>':'')+(x.state==='APPROVED'?'<input type="datetime-local" data-date="'+safe(x.id)+'"><button data-schedule="'+safe(x.id)+'">Jadwalkan (WITA perangkat)</button>':'')+'</div></article>').join(''):'<p class="muted">Belum ada konten.</p>';
 el('trendlist').innerHTML=t.trends.map(x=>'<div class="card"><b>'+safe(x.topic)+'</b><br><small>'+safe(x.source)+'</small></div>').join('')||'<p class="muted">Belum ada riset.</p>';
 document.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>work(()=>action('posts/'+b.dataset.approve+'/approve')));
-document.querySelectorAll('[data-schedule]').forEach(b=>b.onclick=()=>work(()=>action('posts/'+b.dataset.schedule+'/schedule',{date:new Date(Date.now()+86400000).toISOString()})));
+document.querySelectorAll('[data-schedule]').forEach(b=>b.onclick=()=>work(()=>{const v=document.querySelector('[data-date="'+b.dataset.schedule+'"]')?.value;if(!v)throw Error('Pilih tanggal dan jam');return action('posts/'+b.dataset.schedule+'/schedule',{date:new Date(v).toISOString()})}));
+document.querySelectorAll('[data-upload]').forEach(b=>b.onclick=()=>work(async()=>{const file=document.querySelector('[data-file="'+b.dataset.upload+'"]')?.files?.[0];if(!file)throw Error('Pilih gambar atau MP4');const r=await fetch('/api/posts/'+b.dataset.upload+'/media',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':file.type},body:file});const j=await r.json();if(!r.ok)throw Error(j.error||'Upload gagal');return j;}));
+document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>work(async()=>{const r=await fetch('/api/media/'+b.dataset.view,{headers:{Authorization:'Bearer '+token}});if(!r.ok)throw Error('Media tidak ditemukan');const u=URL.createObjectURL(await r.blob());const w=window.open(u,'_blank','noopener,noreferrer');if(!w)el('notice').textContent='Pop-up diblokir, periksa browser';setTimeout(()=>URL.revokeObjectURL(u),120000);return {mediaOpened:true};}));
 }
-el('refresh').onclick=()=>{token=el('token').value;work(async()=>{await refresh();return {connected:true}})};
+el('refresh').onclick=()=>{token=el('token').value;el('token').value='';work(async()=>{await refresh();return {connected:true}})};
 el('pause').onclick=()=>work(()=>action('pause',{paused:true}));el('resume').onclick=()=>work(()=>action('pause',{paused:false}));
 el('trends').onclick=()=>work(()=>action('research'));el('metrics').onclick=()=>work(()=>action('metrics'));el('publish').onclick=()=>work(()=>action('publish'));
 el('generate').onclick=()=>work(()=>action('generate',{channel:el('channel').value,format:el('format').value,topic:el('topic').value}));
@@ -220,7 +222,7 @@ async function handle(request,e){
  if(!e.ADMIN_TOKEN)return answer({error:'ADMIN_TOKEN not configured'},503);
  if(!compareToken(auth.startsWith('Bearer ')?auth.slice(7):'',e.ADMIN_TOKEN))return answer({error:'Unauthorized'},401);
  if(!e.DB)return answer({error:'D1 missing'},503);
- if(method==='GET'&&p==='/api/status')return answer({paused:await isPaused(e),publicationEnabled:e.ALLOW_PUBLICATION==='true',r2Ready:!!e.MEDIA,mediaReady:!!e.MEDIA,mediaBackend:e.MEDIAKV?'KV':e.MEDIA?'R2':null,aiReady:!!e.AI,channels:CHANNELS});
+ if(method==='GET'&&p==='/api/status')return answer({paused:await isPaused(e),publicationEnabled:e.ALLOW_PUBLICATION==='true',mediaReady:!!e.MEDIA,mediaBackend:e.MEDIAKV?'KV':e.MEDIA?'R2':null,aiReady:!!e.AI,facebookReady:!!(e.FB_PAGE_ID&&e.FB_PAGE_ACCESS_TOKEN),panexReady:!!(e.YT_REFRESH_TOKEN_PANEX&&e.YT_CHANNEL_ID_PANEX),herosReady:!!(e.YT_REFRESH_TOKEN_HEROS&&e.YT_CHANNEL_ID_HEROS),channels:CHANNELS});
  if(method==='GET'&&p==='/api/posts')return answer({posts:await list(e,'SELECT * FROM posts ORDER BY created_at DESC LIMIT 100')});
  if(method==='GET'&&p==='/api/trends')return answer({trends:await list(e,'SELECT * FROM trends ORDER BY created_at DESC LIMIT 30')});
  if(method==='GET'&&p==='/api/analytics')return answer({analytics:await list(e,'SELECT * FROM metrics ORDER BY observed_at DESC LIMIT 100')});

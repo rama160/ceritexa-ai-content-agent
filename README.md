@@ -1,4 +1,4 @@
-# Ceritexa AI Content Agent — v1.2.0
+# Ceritexa AI Content Agent — v1.2.1
 
 An isolated Cloudflare Worker and GitHub Actions project for:
 - **Ceritexa Studio** (Facebook Page, text/photo/comic)
@@ -14,7 +14,7 @@ An isolated Cloudflare Worker and GitHub Actions project for:
 - KV: `ceritexa-content-media-kv` (isolated fallback for small files)
 - Workers AI binding: `AI`
 - R2: not available on account; not used
-- Admin token: installed as **Cloudflare Secret ADMIN_TOKEN** (not in GitHub)
+- Admin token: installed as **Cloudflare Secret ADMIN_TOKEN**. **Owner must rotate to a new known private value and mirror it in GitHub Actions Secret.**
 - Public social publishing: **OFF**; automatic DAILY DRAFTS **ON**; D1 `paused=false`
 - OAuth Facebook Page/YouTube: still requires owner authorization
 
@@ -36,7 +36,7 @@ The owner must approve **each** post. An AI-generated VIDEO draft includes artwo
 ## Free video rendering (no VPS)
 `tools/render_video.py` runs only in `.github/workflows/render-video.yml`. The GitHub workflow uses offline Indonesian `espeak-ng`, FFmpeg and SRT subtitles to create a small vertical MP4 and upload it to the existing draft for review, **not** to Facebook/YouTube. It checks Pause All. Results depend on GitHub Actions availability, Worker reachability and voice quality. It is not a premium cinematic generative video model.
 
-To enable, go to repository → **Settings → Secrets and variables → Actions → New repository secret** and create `CERITEXA_ADMIN_TOKEN`, with the exact same value as the Cloudflare Worker ADMIN_TOKEN delivered privately to the owner. Do NOT commit or paste token in issues/PRs. Run **Actions → Ceritexa Video Renderer → Run workflow** for the first test.
+To enable, go to repository → **Settings → Secrets and variables → Actions → New repository secret** and create `CERITEXA_ADMIN_TOKEN`, with the exact same NEW value as the Cloudflare Worker ADMIN_TOKEN that you personally rotate and save. Do NOT commit or paste token in issues/PRs. Run **Actions → Ceritexa Video Renderer → Run workflow** for the first test.
 
 ## Cloudflare manual smoke-test
 1. Open dashboard and enter Admin token. The form clears the input after connection and keeps the token only in memory.
@@ -68,7 +68,7 @@ Use a unique new Facebook Page token belonging to **Ceritexa Studio**, not Nusa 
 ```bash
 npm run check
 npm test
-python -m py_compile tools/render_video.py
+python -m py_compile tools/render_video.py tests/smoke.py
 npx wrangler d1 migrations apply ceritexa-content-db --remote
 npx wrangler deploy
 ```
@@ -81,3 +81,16 @@ There is no automatic production deploy triggered by pushes; CI tests only. Do n
 - Strategy adapts topic preferences only on measurable engagement from at least three published posts/channel.
 - Current TTS quality is utilitarian, not cinematic; for higher quality configure a licensed voice provider in a later gated phase.
 - GitHub Actions scheduled jobs can be delayed, paused or disabled by GitHub; workflow requires one-time repo secret.
+
+
+## Owner actions — in order (DO NOT send tokens to ChatGPT)
+1. **Rotate ADMIN_TOKEN**. Cloudflare Dashboard → Workers & Pages → **ceritexa-content-agent** → Settings → Variables and Secrets → `ADMIN_TOKEN` → Edit/Replace. Create a NEW randomly generated secret of at least 32 characters in your password manager. The initial secret was provisioned during setup, but the owner has not received a usable copy; rotating it avoids relying on an unknown key. Save the new value privately.
+2. **GitHub Actions secret**. Repo → Settings → Secrets and variables → Actions → New repository secret. Name **`CERITEXA_ADMIN_TOKEN`**, value = exactly the NEW token from step 1. Do not put it in a file or chat. Two services read the same owner-only value; there is no Finchat/Spenva dependency.
+3. **Verify**. Open dashboard, sign in with the new secret. Test "Riset Tren", inspect existing sample **UJI INTERNAL** and a new TEXT draft, try Pause/Resume. Then run GitHub → Actions → **Ceritexa CI** → Run workflow; the manually triggered CI runs `tests/smoke.py` to check real HTTP health/auth and that publication is off.
+4. **Render video**. In dashboard, create a Panex or Heros VIDEO draft; owner may edit the complete 95–125 word script. Go to Actions → **Ceritexa Video Renderer (drafts only)** → Run workflow. Verify the result has a media preview and remains **PENDING_REVIEW**. This does not post anything to YouTube.
+5. **Facebook Page connection**. In your *Ceritexa-only* Meta developer app, grant the Page-scoped permissions `pages_show_list`, `pages_read_engagement` and `pages_manage_posts` as required, and ensure your account has permission to create Page content. Store the **Ceritexa Studio Page** ID as Worker variable `FB_PAGE_ID` and its **Page access token** as Worker Secret `FB_PAGE_ACCESS_TOKEN`. DO NOT use Nusa Penida Page ID/token. Dashboard "Uji koneksi sosial" must return `facebook.verified=true` and the page name must begin with "Ceritexa". App Review may be required for other user access. Graph API photo and text posting are implemented; Facebook Reels currently BLOCKED.
+6. **Both YouTube channels**. Create a separate Google Cloud project for Ceritexa, enable **YouTube Data API v3**, configure OAuth consent and client credentials. Authorize **Panex** and **Heros Real Life** separately using OAuth with YouTube upload/read permission and `access_type=offline`, capturing separate refresh tokens using a secure trusted flow. Store OAuth client ID/secret and the refresh token for EACH channel as individual Cloudflare Worker Secrets `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN_PANEX`, `YT_REFRESH_TOKEN_HEROS`. Store the distinct channel IDs in Worker variables `YT_CHANNEL_ID_PANEX` and `YT_CHANNEL_ID_HEROS`. The Worker verifies `channels.list(mine=true)` before any private MP4 upload. Never paste tokens in GitHub/ChatGPT.
+7. **Controlled provider test**. Dashboard → "Uji koneksi sosial" and inspect results; then review a real draft and test one Ceritexa Page post and **one private YouTube upload per channel** under controlled permission settings. The Cloudflare `ALLOW_PUBLICATION` switch must remain `false` until tests pass **and** you explicitly decide to activate real publishing.
+8. **Optional, not blocking initial pilot**. Consider enabling R2 when you have an accepted payment/activation route. The isolated KV storage already supports limited images and small MP4 files; it is not a scalable media library.
+
+Expected user effort: token rotation / GitHub action secret, approving the first draft, Meta Page authorization, OAuth for Panex and Heros. The agent does not need a VPS.

@@ -45,3 +45,6 @@ Updated: 2026-10-25 (WITA). Source of truth: test evidence, not feature claims.
 - Facebook/YouTube publishing remains OFF (`ALLOW_PUBLICATION=false`), D1 paused=false, daily drafting var=true, monthly draft cap=24. Owner review is always required.
 - ADMIN_TOKEN exists in Cloudflare but owner must rotate to a known secret and set the identical value as GitHub Actions `CERITEXA_ADMIN_TOKEN`; never disclose values in chat or repository.
 - Updated canonical user action list located in README.md under `Owner actions — in order`.
+
+## Follow-up owner onboarding 2026-10-25
+Owner reports first three setup tasks completed. Remaining Facebook and two YouTube connections require account authorization. Checked Ceritexa Worker settings: social provider configuration absent; publication remains disabled. Canonical README now describes setup and links to official provider documentation. Browser and provider posting checks remain pending.

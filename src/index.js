@@ -124,6 +124,7 @@ async function youtubeToken(e,channel){
  const rt=channel==='panex'?e.YT_REFRESH_TOKEN_PANEX:e.YT_REFRESH_TOKEN_HEROS;
  const id=channel==='panex'?e.YT_CHANNEL_ID_PANEX:e.YT_CHANNEL_ID_HEROS;
  if(!rt||!id||!e.YT_CLIENT_ID||!e.YT_CLIENT_SECRET)throw Error('Youtube OAuth channel belum siap');
+ if(e.YT_CHANNEL_ID_PANEX && e.YT_CHANNEL_ID_HEROS && e.YT_CHANNEL_ID_PANEX===e.YT_CHANNEL_ID_HEROS)throw Error('Panex dan Heros tidak boleh memakai YouTube Channel ID sama');
  const r=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:e.YT_CLIENT_ID,client_secret:e.YT_CLIENT_SECRET,refresh_token:rt,grant_type:'refresh_token'})});
  if(!r.ok)throw Error('YouTube token error HTTP '+r.status);
  const token=(await r.json()).access_token;
@@ -132,9 +133,33 @@ async function youtubeToken(e,channel){
  if(!(await chk.json()).items?.some(x=>x.id===id))throw Error('YouTube OAuth channel mismatch');
  return token;
 }
+async function facebookIdentity(e){
+ if(!e.FB_PAGE_ID || !e.FB_PAGE_ACCESS_TOKEN)throw Error('Facebook Page Ceritexa belum dikonfigurasi');
+ const r=await fetch('https://graph.facebook.com/v24.0/'+encodeURIComponent(e.FB_PAGE_ID)+'?fields=id,name',{
+  headers:{Authorization:'Bearer '+e.FB_PAGE_ACCESS_TOKEN}
+ });
+ if(!r.ok)throw Error('Meta Page identity HTTP '+r.status);
+ const page=await r.json();
+ if(String(page.id)!==String(e.FB_PAGE_ID) || !/^ceritexa(?:\\s|$)/i.test(String(page.name||''))){
+  throw Error('Meta Page salah: hanya Ceritexa Studio diizinkan; posting dibatalkan');
+ }
+ return {id:String(page.id),name:String(page.name)};
+}
+async function verifyConnections(e){
+ const result={facebook:{verified:false},panex:{verified:false},heros:{verified:false}};
+ try{const page=await facebookIdentity(e);result.facebook={verified:true,id:page.id,name:page.name};}catch(error){result.facebook.error=String(error.message||error).slice(0,120);}
+ for(const channel of ['panex','heros']){
+  try{
+   if(e.YT_CHANNEL_ID_PANEX && e.YT_CHANNEL_ID_HEROS && e.YT_CHANNEL_ID_PANEX===e.YT_CHANNEL_ID_HEROS)throw Error('Dua channel YouTube tidak boleh memakai ID yang sama');
+   await youtubeToken(e,channel);
+   result[channel]={verified:true,id:channel==='panex'?e.YT_CHANNEL_ID_PANEX:e.YT_CHANNEL_ID_HEROS};
+  }catch(error){result[channel].error=String(error.message||error).slice(0,120);}
+ }
+ return result;
+}
 async function providerPublish(e,p){
  if(p.channel==='facebook'){
-  if(!e.FB_PAGE_ID||!e.FB_PAGE_ACCESS_TOKEN)throw Error('Facebook Page belum dihubungkan');
+  await facebookIdentity(e);
   let url='https://graph.facebook.com/v24.0/'+encodeURIComponent(e.FB_PAGE_ID)+'/feed',body;
   if(p.format==='TEXT')body=new URLSearchParams({message:p.caption,access_token:e.FB_PAGE_ACCESS_TOKEN});
   else if(p.format==='PHOTO'||p.format==='COMIC'){
@@ -226,7 +251,7 @@ async function strategy(e){
 }
 const page=`<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ceritexa Studio — AI Content Agent</title><style>
 :root{font-family:system-ui,-apple-system,sans-serif;color:#eaf0ff;background:#0c1020}*{box-sizing:border-box}body{margin:0}header{padding:20px;background:linear-gradient(120deg,#203361,#321750);border-bottom:1px solid #3a4264}h1{margin:4px 0;font-size:24px}small,.muted{color:#aeb8d3}main{max-width:1050px;margin:auto;padding:16px}.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}button,select,input,textarea{font:inherit;padding:10px;border-radius:9px;border:1px solid #4e5a83;color:#eaf0ff;background:#1c2544}textarea{width:100%;display:block;margin:8px 0}button{cursor:pointer}button:hover{background:#2b3b65}button.primary{background:#374ea1}input{max-width:100%}article{background:#171d35;border:1px solid #313b60;border-radius:13px;padding:14px;margin:12px 0}section{margin:20px 0}.card{background:#121830;border:1px solid #313b60;padding:14px;border-radius:12px;margin:10px 0}h3{margin:5px 0}.tag{color:#b8dcff;font-size:12px}p{overflow-wrap:anywhere}pre{white-space:pre-wrap;max-height:300px;overflow:auto}#notice{min-height:24px;color:#d8ed9a}label{font-size:13px;color:#b6c6ed}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}@media(max-width:520px){header{padding:14px}main{padding:12px}h1{font-size:20px}}
-</style></head><body><header><h1>✦ Ceritexa Studio</h1><small>AI Director · Panex · Heros Real Life · Facebook Page</small></header><main><article><div class="bar"><label for="token">Admin token (hanya di memori halaman)</label><input type="password" id="token" autocomplete="off" placeholder="Masukkan ADMIN_TOKEN"><button class="primary" id="refresh">Hubungkan</button></div><p id="notice">Masukkan token setelah dibuat di Cloudflare Dashboard. Public posting OFF.</p></article><section><h2>Status & kendali</h2><div id="status" class="cols"></div><div class="bar"><button id="pause">Pause All</button><button id="resume">Resume Drafting</button><button id="trends">Riset Tren</button><button id="metrics">Ambil Statistik</button><button id="strategy">Evaluasi strategi</button><button id="publish">Periksa Jadwal</button></div></section><section><h2>Kesiapan Integrasi</h2><div id="readiness"></div></section><section><h2>Buat draft AI</h2><article><div class="bar"><select id="channel"><option value="facebook">Facebook Ceritexa</option><option value="panex">YouTube Panex</option><option value="heros">YouTube Heros</option></select><select id="format"><option>TEXT</option><option>PHOTO</option><option>COMIC</option><option>VIDEO</option></select><input id="topic" placeholder="Topik opsional"><button class="primary" id="generate">Buat draft</button></div><small>AI hanya membuat draft. Foto/komik menggunakan media KV; video memerlukan renderer. YouTube hanya menerima VIDEO.</small></article></section><section><h2>Konten dan persetujuan</h2><div id="posts"></div></section><section><h2>Strategi berbasis metrik</h2><pre id="strategyResult">Belum dievaluasi.</pre></section><section><h2>Tren</h2><div id="trendlist"></div></section></main><script>
+</style></head><body><header><h1>✦ Ceritexa Studio</h1><small>AI Director · Panex · Heros Real Life · Facebook Page</small></header><main><article><div class="bar"><label for="token">Admin token (hanya di memori halaman)</label><input type="password" id="token" autocomplete="off" placeholder="Masukkan ADMIN_TOKEN"><button class="primary" id="refresh">Hubungkan</button></div><p id="notice">Masukkan token setelah dibuat di Cloudflare Dashboard. Public posting OFF.</p></article><section><h2>Status & kendali</h2><div id="status" class="cols"></div><div class="bar"><button id="pause">Pause All</button><button id="resume">Resume Drafting</button><button id="trends">Riset Tren</button><button id="metrics">Ambil Statistik</button><button id="verify">Uji koneksi sosial</button><button id="strategy">Evaluasi strategi</button><button id="publish">Periksa Jadwal</button></div></section><section><h2>Kesiapan Integrasi</h2><div id="readiness"></div><pre id="verifyResults">Belum ada verifikasi akun sosial.</pre></section><section><h2>Buat draft AI</h2><article><div class="bar"><select id="channel"><option value="facebook">Facebook Ceritexa</option><option value="panex">YouTube Panex</option><option value="heros">YouTube Heros</option></select><select id="format"><option>TEXT</option><option>PHOTO</option><option>COMIC</option><option>VIDEO</option></select><input id="topic" placeholder="Topik opsional"><button class="primary" id="generate">Buat draft</button></div><small>AI hanya membuat draft. Foto/komik menggunakan media KV; video memerlukan renderer. YouTube hanya menerima VIDEO.</small></article></section><section><h2>Konten dan persetujuan</h2><div id="posts"></div></section><section><h2>Strategi berbasis metrik</h2><pre id="strategyResult">Belum dievaluasi.</pre></section><section><h2>Tren</h2><div id="trendlist"></div></section></main><script>
 let token='';const el=id=>document.getElementById(id);const safe=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function api(path,opts={}){if(!token)throw Error('Masukkan ADMIN_TOKEN');const r=await fetch('/api/'+path,{...opts,headers:{'Authorization':'Bearer '+token,...(opts.headers||{})}});let data=await r.json().catch(()=>({error:'Respons bukan JSON'}));if(!r.ok)throw Error(data.error||'HTTP '+r.status);return data}
 async function action(path,data){return api(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data||{})})}
@@ -243,7 +268,7 @@ document.querySelectorAll('[data-view]').forEach(b=>b.onclick=async()=>{try{cons
 }
 el('refresh').onclick=()=>{token=el('token').value;el('token').value='';work(async()=>{await refresh();return {connected:true}})};
 el('pause').onclick=()=>work(()=>action('pause',{paused:true}));el('resume').onclick=()=>work(()=>action('pause',{paused:false}));
-el('trends').onclick=()=>work(()=>action('research'));el('metrics').onclick=()=>work(()=>action('metrics'));el('strategy').onclick=()=>work(async()=>{const v=await action('strategy');el('strategyResult').textContent=JSON.stringify(v,null,2);return {strategyEvaluated:true}});el('publish').onclick=()=>work(()=>action('publish'));
+el('trends').onclick=()=>work(()=>action('research'));el('metrics').onclick=()=>work(()=>action('metrics'));el('verify').onclick=()=>work(async()=>{const v=await api('connections/verify');el('verifyResults').textContent=JSON.stringify(v,null,2);return {connectionChecksComplete:true}});el('strategy').onclick=()=>work(async()=>{const v=await action('strategy');el('strategyResult').textContent=JSON.stringify(v,null,2);return {strategyEvaluated:true}});el('publish').onclick=()=>work(()=>action('publish'));
 el('generate').onclick=()=>work(()=>action('generate',{channel:el('channel').value,format:el('format').value,topic:el('topic').value}));
 el('channel').onchange=()=>{if(el('channel').value!=='facebook')el('format').value='VIDEO'};
 </script></body></html>`;
@@ -265,6 +290,7 @@ async function handle(request,e){
  if(!compareToken(auth.startsWith('Bearer ')?auth.slice(7):'',e.ADMIN_TOKEN))return answer({error:'Unauthorized'},401);
  if(!e.DB)return answer({error:'D1 missing'},503);
  if(method==='GET'&&p==='/api/readiness')return answer(readiness(e,await isPaused(e)));
+ if(method==='GET'&&p==='/api/connections/verify')return answer(await verifyConnections(e));
  if(method==='GET'&&p==='/api/status')return answer({paused:await isPaused(e),publicationEnabled:e.ALLOW_PUBLICATION==='true',mediaReady:!!e.MEDIA,mediaBackend:e.MEDIAKV?'KV':e.MEDIA?'R2':null,aiReady:!!e.AI,facebookReady:!!(e.FB_PAGE_ID&&e.FB_PAGE_ACCESS_TOKEN),panexReady:!!(e.YT_REFRESH_TOKEN_PANEX&&e.YT_CHANNEL_ID_PANEX),herosReady:!!(e.YT_REFRESH_TOKEN_HEROS&&e.YT_CHANNEL_ID_HEROS),channels:CHANNELS});
  if(method==='GET'&&p==='/api/posts')return answer({posts:await list(e,'SELECT * FROM posts ORDER BY created_at DESC LIMIT 100')});
  if(method==='GET'&&p==='/api/trends')return answer({trends:await list(e,'SELECT * FROM trends ORDER BY created_at DESC LIMIT 30')});

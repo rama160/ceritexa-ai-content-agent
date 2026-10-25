@@ -1,5 +1,8 @@
 # CHANGELOG
 ## 1.2.0 — 2026-10-25
+- Verified Cloudflare latest Worker script live with 100% traffic, isolated AI/D1/KV bindings, ADMIN_TOKEN still installed; public publication OFF.
+- Enabled daily automated draft rotation (ALLOW_DAILY_DRAFTS=true) and unpaused D1 review workflow (paused=false) on owner's autonomy request; one draft/day up to 24/month; no social publication without approval.
+- Tested offline FFmpeg subtitles/video command locally with Indonesian TTS voice and valid MP4 output; GitHub-hosted rendering still requires repo secret and runtime test.
 - Live-tested Cloudflare Workers AI text providers: GLM reasoning consumed low output budget; Llama JSON incomplete; switched primary to Gemma 4 26B (valid Indonesian JSON) with Llama fallback.
 - Provisioned strong ADMIN_TOKEN solely as Cloudflare Worker secret; no credential committed to GitHub.
 - Expanded existing Worker media generation to create illustration for video draft; owner's approval remains mandatory.

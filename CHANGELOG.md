@@ -1,4 +1,9 @@
 # CHANGELOG
+## Onboarding documentation update — 2026-10-25
+- Appended current Meta Facebook Page and separate Google OAuth Panex/Heros setup references to the existing README.
+- Owner reports the initial three dashboard/CI setup tasks complete. Provider tokens remain to be configured and verified.
+- No application code or unrelated Workers were modified. Public publishing stays disabled.
+
 ## 1.2.1 — 2026-10-25
 ### Implemented
 - Added centralized setup readiness in existing `src/core.js`, exposed admin-only `GET /api/readiness`, and integrated checklist in existing mobile dashboard.

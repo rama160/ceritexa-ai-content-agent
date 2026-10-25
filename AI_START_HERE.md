@@ -1,5 +1,5 @@
 # AI START HERE — Ceritexa canonical rules
-Version 1.1.2 — 2026-10-25
+Version 1.2.0 — 2026-10-25
 
 1. Always read this file, PHASE.md, CHANGELOG.md, PRD.md and ARSITEKTUR.md before work.
 2. Edit existing owner modules rather than writing similar/duplicate files; do not add suffixes *_fixed, *_new, _v2.
@@ -13,3 +13,10 @@ Version 1.1.2 — 2026-10-25
 10. Tests: npm run check, npm test, then D1 health/auth/draft/publisher E2E; record outcomes.
 11. Admin dashboard for mobile only stores ADMIN_TOKEN in page memory, not localStorage.
 12. Monthly draft quota cap and Pause All; never automatically purchase, upgrade, boost posts.
+
+13. One canonical video renderer: `tools/render_video.py`; orchestration only in `.github/workflows/render-video.yml`. Do not create additional video scripts; edit these originals.
+14. Video generation: Worker creates an AI illustrated VIDEO draft with `BLOCKED / VIDEO_RENDER_REQUIRED`, GitHub Actions uses offline Indonesian TTS + FFmpeg subtitles and uploads an MP4 back into the draft for owner review. Requires **GitHub Actions secret** `CERITEXA_ADMIN_TOKEN` matching the Cloudflare `ADMIN_TOKEN`. Never place either in source or logs.
+15. Analytics-to-strategy engine lives in `src/index.js` under `strategy()`; strategy changes topic suggestions only after at least 3 published posts with actual available metrics. Missing analytics are always labeled unavailable.
+16. The AI text provider is Gemma 4 26B A4B IT on Workers AI, fallback Llama 3.1 8B; revalidate schemas on model changes.
+17. Verified Cloudflare account workers.dev suffix may contain another project's name; **only** isolated script `ceritexa-content-agent`, its D1, and its own KV may be changed. Shared suffix is not shared deployment.
+18. Never claim full autopilot until owner has configured approved Facebook Page token and both verified YouTube OAuth channel refresh tokens, run provider tests, enabled publishing after consent, and confirmed media/video CI.

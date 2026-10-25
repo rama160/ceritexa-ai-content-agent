@@ -48,3 +48,10 @@ Updated: 2026-10-25 (WITA). Source of truth: test evidence, not feature claims.
 
 ## Follow-up owner onboarding 2026-10-25
 Owner reports first three setup tasks completed. Remaining Facebook and two YouTube connections require account authorization. Checked Ceritexa Worker settings: social provider configuration absent; publication remains disabled. Canonical README now describes setup and links to official provider documentation. Browser and provider posting checks remain pending.
+
+## Branding homepage & policies — 2026-10-26
+- Added public Ceritexa OAuth homepage, privacy policy and terms under canonical `docs/` with a single shared stylesheet, isolated from Spenva/Finchat sites.
+- Source files exist in GitHub and their relative links were verified by source inspection. **GitHub Pages has not been enabled/verified through this tool**, and the suggested public URLs must be tested after owner selects Settings → Pages → main → /docs.
+- Google OAuth Branding user screenshot shows oversized-logo validation and missing App domain fields. Recommended logo is a square 120x120 PNG under 1 MB. Optimized image supplied as a separate chat artifact, not committed to git.
+- Next external gate: owner must enable Pages, confirm all three URLs load without login, enter authorized domain `rama160.github.io`, and verify ownership via Google Search Console if required. Google approval cannot be guaranteed on a shared-host domain.
+- No Ceritexa Worker code, tokens, or other project infrastructure was changed by this branding-documentation phase.

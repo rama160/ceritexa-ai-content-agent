@@ -1,4 +1,17 @@
 # CHANGELOG
+## 1.2.0 — 2026-10-25
+- Live-tested Cloudflare Workers AI text providers: GLM reasoning consumed low output budget; Llama JSON incomplete; switched primary to Gemma 4 26B (valid Indonesian JSON) with Llama fallback.
+- Provisioned strong ADMIN_TOKEN solely as Cloudflare Worker secret; no credential committed to GitHub.
+- Expanded existing Worker media generation to create illustration for video draft; owner's approval remains mandatory.
+- Added media upload and previews to existing dashboard, exact date/time scheduling, login field clearing and integration status flags.
+- Added one canonical offline video renderer (espeak-ng Indonesian voice, FFmpeg, SRT captions) plus one scheduled GitHub Actions workflow, disabled in effect until GitHub secret is configured.
+- Added per-channel analytics-to-strategy topic-learning loop (minimum three published posts and actual engagement).
+- Introduced channel-balanced daily draft rotation; remains opt-in and paused on Cloudflare.
+- Strengthened MIME approval gates (no JPEG as YouTube MP4; unsupported Facebook Reels cannot be approved) with regression tests.
+- Expanded CI with Python syntax check, updated canonical docs and phase tracking.
+- Reuploaded updated code to isolated Cloudflare Worker after GitHub changes; no changes to Finchat, Spenva or tourism resources.
+- Remaining: HTTP/browser E2E inaccessible from environment, GitHub Actions runtime unverified, GitHub renderer secret, provider OAuth/Meta permissions, full public posting and monetization **not validated**.
+
 ## 1.1.2 — 2026-10-25
 - Aligned package.json, PRD, architecture, phase and AI_START_HERE versions to v1.1.2.
 - Confirmed isolated Worker deployment at 100% by Cloudflare deployments API, subdomain and Cron still enabled.

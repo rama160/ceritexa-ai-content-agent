@@ -64,7 +64,7 @@ def render(item, folder: Path):
         text=True, timeout=20).strip()
     duration = min(175.0, float(probe))
     create_subtitles(story, duration, srt)
-    filt = "scale=480:854:force_original_aspect_ratio=increase,crop=480:854,format=yuv420p,subtitles=caption.srt:force_style='FontName=DejaVu Sans,FontSize=15,Outline=2,Shadow=1,MarginV=65'"
+    filt = "scale=480:854:force_original_aspect_ratio=increase,crop=480:854,format=yuv420p,subtitles=" + str(srt) + ":force_style='FontName=DejaVu Sans,FontSize=15,Outline=2,Shadow=1,MarginV=65'"
     command("ffmpeg", "-y", "-loglevel", "error", "-loop", "1", "-framerate", "24",
             "-i", str(source), "-i", str(wav),
             "-vf", filt, "-c:v", "libx264", "-preset", "veryfast",

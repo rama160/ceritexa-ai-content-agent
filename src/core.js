@@ -44,5 +44,8 @@ export function gate(p){
  if(detectRisk([p.title,p.story,p.caption].join(' ')))return 'IP_BLOCKED';
  if(p.story?.length<100)return 'STORY_TOO_SHORT';
  if(p.format!=='TEXT'&&!p.media_key)return 'MEDIA_REQUIRED';
+ if(p.format==='VIDEO'&&p.media_type!=='video/mp4')return 'MP4_REQUIRED';
+ if(['PHOTO','COMIC'].includes(p.format)&&!['image/jpeg','image/png'].includes(p.media_type))return 'IMAGE_REQUIRED';
+ if(p.channel==='facebook'&&p.format==='VIDEO')return 'FACEBOOK_REELS_API_NOT_CONNECTED';
  return '';
 }

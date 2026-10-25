@@ -23,3 +23,11 @@ Use a random admin token >=24 chars. Login at the Worker URL. Only the public he
 - Facebook Page text/photos adapter; YouTube private MP4 uploader and per-channel verification are implemented but **untested pending credentials, R2, provider permissions**.
 - Video composer/render pipeline **not implemented**; short MP4 can be uploaded using KV after integrations are tested.
 - No auth secrets in this public repo. No worker code from Nusa Penida Experiences or Spenva/Finchat is modified.
+
+## Required one-time owner action: Admin login and integrations
+1. Open [Cloudflare dashboard](https://dash.cloudflare.com/), Workers & Pages → **ceritexa-content-agent** → Settings → Variables and Secrets.
+2. Create a **secret** `ADMIN_TOKEN` containing a new random passphrase of at least 24 characters (not a normal plain variable). Save it privately, never commit it to this public repo.
+3. Open `https://ceritexa-content-agent.finchat-ai-gateway.workers.dev/` and enter the token. The account workers.dev suffix is shared, **not the Worker code/resources**.
+4. First test `/api/health`, admin login, research, one AI text draft and approval. If Workers AI model has no access, check the model and quotas.
+5. Set up a new Ceritexa Facebook Page and verify Page token; configure Panex and Heros YouTube OAuth tokens with separate verified channel IDs. The publishing switch MUST remain off until owner checks live/private smoke tests.
+6. The app currently cannot auto-render full-length video nor upload Facebook Reels; this is not a finished autonomous multimedia agent.

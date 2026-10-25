@@ -1,0 +1,246 @@
+import {CHANNELS,validate,detectRisk,parseRss,score,parseAI,compareToken,gate} from './core.js';
+const utc=()=>new Date().toISOString(),uuid=()=>crypto.randomUUID();
+const answer=(v,c=200)=>Response.json(v,{status:c,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
+const db=(env,q,...params)=>env.DB.prepare(q).bind(...params);
+const row=async(e,q,...p)=>db(e,q,...p).first();
+const list=async(e,q,...p)=>(await db(e,q,...p).all()).results||[];
+const run=async(e,q,...p)=>db(e,q,...p).run();
+async function audit(e,action,id='',detail=''){await run(e,'INSERT INTO audit(id,action,entity_id,detail,at) VALUES(?,?,?,?,?)',uuid(),action,id,String(detail).slice(0,300),utc());}
+async function isPaused(e){return (await row(e,"SELECT value FROM settings WHERE key='paused'"))?.value!=='false';}
+const seeds=['Perjuangan ibu membesarkan keluarga','Persahabatan yang diuji oleh rahasia','Pilihan berat seorang pahlawan orisinal','Warung keluarga menghadapi penutupan','Misteri fiksi tetangga baru'];
+const mtext='@cf/zai-org/glm-4.7-flash';
+const mimage='@cf/black-forest-labs/flux-1-schnell';
+function aiPrompt(channel,format,topic){return [
+ 'You are a professional original fiction writer for '+CHANNELS[channel].label+'.',
+ 'Audience Indonesia. Story theme: '+CHANNELS[channel].topic+'. Trend inspiration (not copy): '+topic+'. Format '+format+'.',
+ 'Create a distinctive original fictional story with protagonist, conflict, surprise, human warmth, clear payoff, vivid but authentic Indonesian dialogue.',
+ 'No named real people, Marvel/DC franchises, copied scripts, disinformation, medical claims or manipulative engagement bait.',
+ 'Return ONLY valid JSON with four string keys: title, story, caption, imagePrompt.',
+ 'story should be at least 150 words, with a striking first sentence. caption ready for publishing without hashtag spam.',
+ 'imagePrompt in English, cinematic vertical 9:16, no text and no recognizable franchise characters.'
+ ].join('\n');}
+export async function research(e){
+ let items=[],source='google_trends_rss';try{
+  const r=await fetch('https://trends.google.com/trending/rss?geo=ID',{headers:{Accept:'application/rss+xml'}});
+  if(!r.ok)throw Error('HTTP '+r.status);
+  items=parseRss(await r.text());if(!items.length)throw Error('RSS kosong');
+ }catch(err){source='editorial_seeds_not_live';items=seeds.map(topic=>({topic,url:'https://trends.google.com/trending?geo=ID'}));}
+ for(const item of items)await run(e,'INSERT INTO trends(id,topic,url,source,score,created_at) VALUES(?,?,?,?,?,?)',uuid(),item.topic,item.url,source,Math.max(...Object.keys(CHANNELS).map(x=>score(item.topic,x))),utc());
+ await audit(e,'RESEARCH','',source+' '+items.length);
+ return {source,count:items.length};
+}
+export async function makeDraft(e,channel,format,topic){
+ validate(channel,format);
+ if(!e.AI)throw Error('Cloudflare AI binding tidak tersedia');
+ const limit=Math.max(1,Math.min(100,Number(e.MONTHLY_DRAFT_LIMIT||24)));
+ const used=await row(e,'SELECT COUNT(*) n FROM posts WHERE created_at>=?',utc().slice(0,7)+'-01');
+ if(Number(used?.n||0)>=limit)throw Error('Batas draft bulanan tercapai');
+ const selected=String(topic||'').slice(0,150).trim()||((await row(e,'SELECT topic FROM trends ORDER BY created_at DESC LIMIT 1'))?.topic)||CHANNELS[channel].topic;
+ if(detectRisk(selected))throw Error('Topik berisiko hak cipta');
+ const result=await e.AI.run(mtext,{messages:[{role:'system',content:'You write original fictional entertainment in JSON only.'},{role:'user',content:aiPrompt(channel,format,selected)}],max_tokens:2048,temperature:0.7});
+ const cr=parseAI(result?.response||result?.output_text||result?.text);
+ const id=uuid();let mediaKey=null,mediaType=null,issue='';
+ if(format==='PHOTO'||format==='COMIC'){
+  if(!e.MEDIA){issue='R2_NOT_ENABLED';}else{
+   try{
+    const im=await e.AI.run(mimage,{prompt:cr.imagePrompt,steps:4});
+    if(!im?.image)throw Error('Image response invalid');
+    const bytes=Uint8Array.from(atob(im.image),c=>c.charCodeAt(0));
+    if(bytes.byteLength>8_000_000)throw Error('Image too large');
+    mediaKey='images/'+id+'.jpg';mediaType='image/jpeg';
+    await e.MEDIA.put(mediaKey,bytes,{httpMetadata:{contentType:mediaType}});
+   }catch(err){issue='IMAGE_GENERATION_FAILED';await audit(e,'IMAGE_ERROR',id,String(err));}
+  }
+ }
+ if(format==='VIDEO')issue='VIDEO_RENDER_REQUIRED';
+ await run(e,`INSERT INTO posts(id,channel,format,title,story,caption,topic,image_prompt,media_key,media_type,state,license_ok,risk_note,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+ id,channel,format,cr.title,cr.story,cr.caption,selected,cr.imagePrompt,mediaKey,mediaType,issue?'BLOCKED':'PENDING_REVIEW',0,issue,utc(),utc());
+ await audit(e,'DRAFT_CREATED',id,channel+'/'+format);
+ return {id,channel,format,status:issue?'BLOCKED':'PENDING_REVIEW',issue};
+}
+async function approve(e,id){
+ const p=await row(e,'SELECT * FROM posts WHERE id=?',id);
+ if(!p||p.state!=='PENDING_REVIEW')throw Error('Draft tidak tersedia untuk approval');
+ const problem=gate({...p,state:'APPROVED',license_ok:1});
+ if(problem)throw Error('Gagal review: '+problem);
+ await run(e,"UPDATE posts SET state='APPROVED',license_ok=1,updated_at=? WHERE id=? AND state='PENDING_REVIEW'",utc(),id);
+ await audit(e,'APPROVED',id);return {id,state:'APPROVED'};
+}
+async function schedule(e,id,s){
+ const p=await row(e,'SELECT * FROM posts WHERE id=?',id);
+ if(!p||gate(p))throw Error('Konten belum disetujui atau pemeriksaan gagal');
+ const date=new Date(s);
+ if(!Number.isFinite(date.getTime())||date.getTime()<Date.now()+30000)throw Error('Jadwal harus di masa depan');
+ await run(e,"UPDATE posts SET state='SCHEDULED',scheduled_at=?,updated_at=? WHERE id=? AND state='APPROVED'",date.toISOString(),utc(),id);
+ await audit(e,'SCHEDULED',id,date.toISOString());return {id,state:'SCHEDULED',scheduled_at:date.toISOString()};
+}
+async function upload(e,id,req){
+ if(!e.MEDIA)throw Error('R2_NOT_ENABLED: aktifkan R2 di Cloudflare Dashboard');
+ const p=await row(e,'SELECT * FROM posts WHERE id=?',id);
+ if(!p||!['BLOCKED','PENDING_REVIEW'].includes(p.state))throw Error('Draft tidak dapat menerima media');
+ if(p.format==='TEXT')throw Error('Teks tidak memerlukan media');
+ const mime=(req.headers.get('Content-Type')||'').split(';')[0],len=Number(req.headers.get('Content-Length')||0);
+ if(!['image/png','image/jpeg','video/mp4'].includes(mime)||len>8_000_000)throw Error('Hanya PNG/JPEG/MP4 <=8MB');
+ const arr=new Uint8Array(await req.arrayBuffer());
+ if(arr.length<20||arr.length>8_000_000)throw Error('Ukuran tidak valid');
+ const jpg=arr[0]===255&&arr[1]===216, png=arr[0]===137&&arr[1]===80&&arr[2]===78&&arr[3]===71,mp4=String.fromCharCode(...arr.slice(4,8))==='ftyp';
+ if((mime==='image/jpeg'&&!jpg)||(mime==='image/png'&&!png)||(mime==='video/mp4'&&!mp4))throw Error('Signature media tidak valid');
+ if(p.format==='VIDEO'&&!mp4)throw Error('VIDEO requires MP4');
+ if(p.format!=='VIDEO'&&mp4)throw Error('Foto/komik memerlukan gambar');
+ const key='owner/'+id+(mp4?'.mp4':png?'.png':'.jpg');
+ await e.MEDIA.put(key,arr,{httpMetadata:{contentType:mime}});
+ await run(e,"UPDATE posts SET media_key=?,media_type=?,state='PENDING_REVIEW',risk_note='',updated_at=? WHERE id=?",key,mime,utc(),id);
+ await audit(e,'MEDIA_UPLOADED',id,mime);return {id,media_key:key};
+}
+async function media(e,id){
+ const p=await row(e,'SELECT media_key,media_type FROM posts WHERE id=?',id);
+ if(!p?.media_key||!e.MEDIA)return new Response('Not found',{status:404});
+ const o=await e.MEDIA.get(p.media_key);
+ return o?new Response(o.body,{headers:{'Content-Type':p.media_type,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}}):new Response('Not found',{status:404});
+}
+async function youtubeToken(e,channel){
+ const rt=channel==='panex'?e.YT_REFRESH_TOKEN_PANEX:e.YT_REFRESH_TOKEN_HEROS;
+ const id=channel==='panex'?e.YT_CHANNEL_ID_PANEX:e.YT_CHANNEL_ID_HEROS;
+ if(!rt||!id||!e.YT_CLIENT_ID||!e.YT_CLIENT_SECRET)throw Error('Youtube OAuth channel belum siap');
+ const r=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:e.YT_CLIENT_ID,client_secret:e.YT_CLIENT_SECRET,refresh_token:rt,grant_type:'refresh_token'})});
+ if(!r.ok)throw Error('YouTube token error HTTP '+r.status);
+ const token=(await r.json()).access_token;
+ const chk=await fetch('https://www.googleapis.com/youtube/v3/channels?part=id&mine=true',{headers:{Authorization:'Bearer '+token}});
+ if(!chk.ok)throw Error('YouTube identity unavailable '+chk.status);
+ if(!(await chk.json()).items?.some(x=>x.id===id))throw Error('YouTube OAuth channel mismatch');
+ return token;
+}
+async function providerPublish(e,p){
+ if(p.channel==='facebook'){
+  if(!e.FB_PAGE_ID||!e.FB_PAGE_ACCESS_TOKEN)throw Error('Facebook Page belum dihubungkan');
+  let url='https://graph.facebook.com/v24.0/'+encodeURIComponent(e.FB_PAGE_ID)+'/feed',body;
+  if(p.format==='TEXT')body=new URLSearchParams({message:p.caption,access_token:e.FB_PAGE_ACCESS_TOKEN});
+  else if(p.format==='PHOTO'||p.format==='COMIC'){
+   if(!e.MEDIA)throw Error('R2 belum aktif');
+   const file=await e.MEDIA.get(p.media_key);if(!file)throw Error('Media hilang');
+   url='https://graph.facebook.com/v24.0/'+encodeURIComponent(e.FB_PAGE_ID)+'/photos';
+   body=new FormData();body.append('source',new Blob([await file.arrayBuffer()],{type:p.media_type}),'ceritexa.jpg');body.append('caption',p.caption);body.append('access_token',e.FB_PAGE_ACCESS_TOKEN);
+  }else throw Error('Facebook video publishing belum diintegrasikan; ditahan');
+  const r=await fetch(url,{method:'POST',body});
+  const result=await r.json().catch(()=>({}));
+  if(!r.ok||!result.id)throw Error('Facebook Graph HTTP '+r.status+' '+String(result.error?.message||''));
+  return {id:result.post_id||result.id};
+ }
+ if(p.format!=='VIDEO'||p.media_type!=='video/mp4'||!e.MEDIA)throw Error('Youtube memerlukan MP4 di R2');
+ const token=await youtubeToken(e,p.channel);
+ const file=await e.MEDIA.get(p.media_key);if(!file||file.size>8_000_000)throw Error('File video hilang/terlalu besar');
+ const metadata={snippet:{title:p.title.slice(0,100),description:p.caption.slice(0,4500),categoryId:'24'},status:{privacyStatus:'private',selfDeclaredMadeForKids:false,containsSyntheticMedia:true}};
+ const r=await fetch('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json','X-Upload-Content-Type':'video/mp4','X-Upload-Content-Length':String(file.size)},body:JSON.stringify(metadata)});
+ if(!r.ok)throw Error('YouTube upload initialize HTTP '+r.status);
+ const location=r.headers.get('Location');
+ if(!location?.startsWith('https://www.googleapis.com/'))throw Error('Invalid upload URL');
+ const put=await fetch(location,{method:'PUT',headers:{Authorization:'Bearer '+token,'Content-Type':'video/mp4'},body:await file.arrayBuffer()});
+ const result=await put.json().catch(()=>({}));
+ if(!put.ok||!result.id)throw Error('YouTube upload HTTP '+put.status);
+ return {id:result.id,url:'https://www.youtube.com/watch?v='+result.id};
+}
+async function publish(e){
+ if((await isPaused(e))||e.ALLOW_PUBLICATION!=='true')return {published:0,reason:'paused_or_disabled'};
+ const posts=await list(e,"SELECT * FROM posts WHERE state='SCHEDULED' AND scheduled_at<=? LIMIT 3",utc());
+ let published=0,uncertain=0;
+ for(const p of posts){
+  if(gate(p))continue;
+  const claimed=await run(e,"UPDATE posts SET state='PUBLISHING',updated_at=? WHERE id=? AND state='SCHEDULED'",utc(),p.id);
+  if(claimed.meta?.changes!==1)continue;
+  await run(e,"INSERT OR IGNORE INTO publications(post_id,state,attempted_at) VALUES(?,'PUBLISHING',?)",p.id,utc());
+  try{const res=await providerPublish(e,p);
+   await run(e,"UPDATE posts SET state='PUBLISHED',updated_at=? WHERE id=?",utc(),p.id);
+   await run(e,"UPDATE publications SET provider_id=?,provider_url=?,state='PUBLISHED',done_at=? WHERE post_id=?",res.id,res.url||null,utc(),p.id);
+   await audit(e,'PUBLISHED',p.id,res.id);published++;
+  }catch(err){
+   const why=String(err).slice(0,250);
+   await run(e,"UPDATE posts SET state='UNCERTAIN',risk_note=?,updated_at=? WHERE id=?",why,utc(),p.id);
+   await run(e,"UPDATE publications SET state='UNCERTAIN',error=?,done_at=? WHERE post_id=?",why,utc(),p.id);
+   await audit(e,'PUBLISH_UNCERTAIN',p.id,why);uncertain++;
+  }
+ }
+ return {published,uncertain};
+}
+async function analytics(e){
+ const pubs=await list(e,"SELECT p.id,p.channel,u.provider_id FROM posts p JOIN publications u ON u.post_id=p.id WHERE p.state='PUBLISHED' ORDER BY u.done_at DESC LIMIT 20");
+ let updated=0,errors=0;
+ for(const p of pubs){
+  try{let stats={};
+   if(p.channel==='facebook'){
+    if(!e.FB_PAGE_ACCESS_TOKEN)continue;
+    const u='https://graph.facebook.com/v24.0/'+encodeURIComponent(p.provider_id)+'?fields=shares,comments.summary(true),reactions.summary(true)&access_token='+encodeURIComponent(e.FB_PAGE_ACCESS_TOKEN);
+    const r=await fetch(u);if(!r.ok)throw Error('FB analytics '+r.status);
+    const j=await r.json();stats={shares:j.shares?.count??null,comments:j.comments?.summary?.total_count??null,likes:j.reactions?.summary?.total_count??null};
+   }else{
+    const t=await youtubeToken(e,p.channel);
+    const r=await fetch('https://www.googleapis.com/youtube/v3/videos?part=statistics&id='+encodeURIComponent(p.provider_id),{headers:{Authorization:'Bearer '+t}});
+    if(!r.ok)throw Error('YT analytics '+r.status);
+    const j=await r.json(),s=j.items?.[0]?.statistics||{};
+    stats={views:s.viewCount??null,likes:s.likeCount??null,comments:s.commentCount??null};
+   }
+   for(const [k,v]of Object.entries(stats))await run(e,'INSERT INTO metrics(post_id,metric,value,observed_at) VALUES(?,?,?,?) ON CONFLICT(post_id,metric) DO UPDATE SET value=excluded.value,observed_at=excluded.observed_at',p.id,k,v==null?null:Number(v),utc());
+   updated++;
+  }catch(err){errors++;await audit(e,'ANALYTICS_ERROR',p.id,String(err));}
+ }
+ return {updated,errors};
+}
+const page=`<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ceritexa Studio — AI Content Agent</title><style>
+:root{font-family:system-ui,-apple-system,sans-serif;color:#eaf0ff;background:#0c1020}*{box-sizing:border-box}body{margin:0}header{padding:20px;background:linear-gradient(120deg,#203361,#321750);border-bottom:1px solid #3a4264}h1{margin:4px 0;font-size:24px}small,.muted{color:#aeb8d3}main{max-width:1050px;margin:auto;padding:16px}.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}button,select,input{font:inherit;padding:10px;border-radius:9px;border:1px solid #4e5a83;color:#eaf0ff;background:#1c2544}button{cursor:pointer}button:hover{background:#2b3b65}button.primary{background:#374ea1}input{max-width:100%}article{background:#171d35;border:1px solid #313b60;border-radius:13px;padding:14px;margin:12px 0}section{margin:20px 0}.card{background:#121830;border:1px solid #313b60;padding:14px;border-radius:12px;margin:10px 0}h3{margin:5px 0}.tag{color:#b8dcff;font-size:12px}p{overflow-wrap:anywhere}pre{white-space:pre-wrap;max-height:300px;overflow:auto}#notice{min-height:24px;color:#d8ed9a}label{font-size:13px;color:#b6c6ed}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}@media(max-width:520px){header{padding:14px}main{padding:12px}h1{font-size:20px}}
+</style></head><body><header><h1>✦ Ceritexa Studio</h1><small>AI Director · Panex · Heros Real Life · Facebook Page</small></header><main><article><div class="bar"><label for="token">Admin token (hanya di memori halaman)</label><input type="password" id="token" autocomplete="off" placeholder="Masukkan ADMIN_TOKEN"><button class="primary" id="refresh">Hubungkan</button></div><p id="notice">Masukkan token setelah dibuat di Cloudflare Dashboard. Public posting OFF.</p></article><section><h2>Status & kendali</h2><div id="status" class="cols"></div><div class="bar"><button id="pause">Pause All</button><button id="resume">Resume Drafting</button><button id="trends">Riset Tren</button><button id="metrics">Ambil Statistik</button><button id="publish">Periksa Jadwal</button></div></section><section><h2>Buat draft AI</h2><article><div class="bar"><select id="channel"><option value="facebook">Facebook Ceritexa</option><option value="panex">YouTube Panex</option><option value="heros">YouTube Heros</option></select><select id="format"><option>TEXT</option><option>PHOTO</option><option>COMIC</option><option>VIDEO</option></select><input id="topic" placeholder="Topik opsional"><button class="primary" id="generate">Buat draft</button></div><small>AI hanya membuat draft. Foto/komik memerlukan R2; video memerlukan renderer. YouTube hanya menerima VIDEO.</small></article></section><section><h2>Konten dan persetujuan</h2><div id="posts"></div></section><section><h2>Tren</h2><div id="trendlist"></div></section></main><script>
+let token='';const el=id=>document.getElementById(id);const safe=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function api(path,opts={}){if(!token)throw Error('Masukkan ADMIN_TOKEN');const r=await fetch('/api/'+path,{...opts,headers:{'Authorization':'Bearer '+token,...(opts.headers||{})}});let data=await r.json().catch(()=>({error:'Respons bukan JSON'}));if(!r.ok)throw Error(data.error||'HTTP '+r.status);return data}
+async function action(path,data){return api(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data||{})})}
+async function work(fn){el('notice').textContent='Menjalankan...';try{const v=await fn();el('notice').textContent=JSON.stringify(v).slice(0,250);await refresh();}catch(e){el('notice').textContent='Error: '+e.message}}
+async function refresh(){const [s,p,t]=await Promise.all([api('status'),api('posts'),api('trends')]);el('status').innerHTML='<div class="card">Mode: <b>'+safe(s.paused?'PAUSED':'REVIEW')+'</b></div><div class="card">Publication: <b>'+safe(s.publicationEnabled?'Configured':'DISABLED')+'</b></div><div class="card">R2: <b>'+safe(s.r2Ready?'ready':'not enabled')+'</b></div><div class="card">Drafts: <b>'+safe(p.posts.length)+'</b></div>';
+el('posts').innerHTML=p.posts.length?p.posts.map(x=>'<article><span class="tag">'+safe(x.channel)+' · '+safe(x.format)+' · '+safe(x.state)+'</span><h3>'+safe(x.title)+'</h3><p>'+safe(x.caption)+'</p><details><summary>Baca naskah</summary><p>'+safe(x.story)+'</p></details><small>'+safe(x.risk_note||'')+'</small><div class="bar"><button data-approve="'+safe(x.id)+'">Setujui</button><button data-schedule="'+safe(x.id)+'">Jadwalkan +1 hari</button></div></article>').join(''):'<p class="muted">Belum ada konten.</p>';
+el('trendlist').innerHTML=t.trends.map(x=>'<div class="card"><b>'+safe(x.topic)+'</b><br><small>'+safe(x.source)+'</small></div>').join('')||'<p class="muted">Belum ada riset.</p>';
+document.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>work(()=>action('posts/'+b.dataset.approve+'/approve')));
+document.querySelectorAll('[data-schedule]').forEach(b=>b.onclick=()=>work(()=>action('posts/'+b.dataset.schedule+'/schedule',{date:new Date(Date.now()+86400000).toISOString()})));
+}
+el('refresh').onclick=()=>{token=el('token').value;work(async()=>{await refresh();return {connected:true}})};
+el('pause').onclick=()=>work(()=>action('pause',{paused:true}));el('resume').onclick=()=>work(()=>action('pause',{paused:false}));
+el('trends').onclick=()=>work(()=>action('research'));el('metrics').onclick=()=>work(()=>action('metrics'));el('publish').onclick=()=>work(()=>action('publish'));
+el('generate').onclick=()=>work(()=>action('generate',{channel:el('channel').value,format:el('format').value,topic:el('topic').value}));
+el('channel').onchange=()=>{if(el('channel').value!=='facebook')el('format').value='VIDEO'};
+</script></body></html>`;
+async function handle(request,e){
+ const url=new URL(request.url),p=url.pathname,method=request.method;
+ if(p==='/')return new Response(page,{headers:{'Content-Type':'text/html; charset=utf-8','Content-Security-Policy':"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'",'X-Content-Type-Options':'nosniff'}});
+ if(p==='/api/health')return answer({ok:true,service:'ceritexa-content-agent',isolated:true,d1:!!e.DB,r2:!!e.MEDIA,ai:!!e.AI,publishingConfigured:e.ALLOW_PUBLICATION==='true'});
+ if(!p.startsWith('/api/'))return answer({error:'Not found'},404);
+ const auth=request.headers.get('Authorization')||'';
+ if(!e.ADMIN_TOKEN)return answer({error:'ADMIN_TOKEN not configured'},503);
+ if(!compareToken(auth.startsWith('Bearer ')?auth.slice(7):'',e.ADMIN_TOKEN))return answer({error:'Unauthorized'},401);
+ if(!e.DB)return answer({error:'D1 missing'},503);
+ if(method==='GET'&&p==='/api/status')return answer({paused:await isPaused(e),publicationEnabled:e.ALLOW_PUBLICATION==='true',r2Ready:!!e.MEDIA,aiReady:!!e.AI,channels:CHANNELS});
+ if(method==='GET'&&p==='/api/posts')return answer({posts:await list(e,'SELECT * FROM posts ORDER BY created_at DESC LIMIT 100')});
+ if(method==='GET'&&p==='/api/trends')return answer({trends:await list(e,'SELECT * FROM trends ORDER BY created_at DESC LIMIT 30')});
+ if(method==='GET'&&p==='/api/analytics')return answer({analytics:await list(e,'SELECT * FROM metrics ORDER BY observed_at DESC LIMIT 100')});
+ if(method==='GET'&&p==='/api/audit')return answer({events:await list(e,'SELECT * FROM audit ORDER BY at DESC LIMIT 40')});
+ if(method==='GET'&&p.startsWith('/api/media/'))return media(e,p.slice('/api/media/'.length));
+ if(method==='POST'){
+  const l=Number(request.headers.get('Content-Length')||0);
+  if(l>8_000_000)return answer({error:'Payload too large'},413);
+  let data={};
+  if(p!=='/api/research'&&p!=='/api/publish'&&p!=='/api/metrics'&&!p.endsWith('/media')){if(l>12000)return answer({error:'JSON too large'},413);data=await request.json();}
+  if(p==='/api/research')return answer(await research(e));
+  if(p==='/api/generate')return answer(await makeDraft(e,data.channel,data.format,data.topic),201);
+  if(p==='/api/pause'){if(typeof data.paused!=='boolean')throw Error('paused harus boolean');await run(e,"INSERT INTO settings(key,value) VALUES('paused',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",String(data.paused));await audit(e,'PAUSE',String(data.paused));return answer({paused:data.paused});}
+  if(p==='/api/publish')return answer(await publish(e));
+  if(p==='/api/metrics')return answer(await analytics(e));
+  const match=p.match(/^\/api\/posts\/([0-9a-f-]{36})\/(approve|schedule|media)$/);
+  if(match){
+   if(match[2]==='approve')return answer(await approve(e,match[1]));
+   if(match[2]==='schedule')return answer(await schedule(e,match[1],data.date));
+   if(match[2]==='media')return answer(await upload(e,match[1],request));
+  }
+ }
+ return answer({error:'Not found'},404);
+}
+export default{
+ async fetch(request,e){try{return await handle(request,e);}catch(error){return answer({error:String(error?.message||error).slice(0,240)},400);}},
+ async scheduled(event,e,ctx){if(!e.DB)return;ctx.waitUntil((async()=>{
+  if(event.cron==='0 0 * * *'){await research(e);if(e.ALLOW_DAILY_DRAFTS==='true'&&!(await isPaused(e)))await makeDraft(e,'facebook','TEXT','');}
+  else await publish(e);
+ })().catch(async er=>{await audit(e,'CRON_ERROR','',String(er));}));}
+};

@@ -42,7 +42,7 @@ export async function makeDraft(e,channel,format,topic){
  let cr=null,lastError='';
  for(const model of [mtext,'@cf/meta/llama-3.1-8b-instruct-fp8']){
   try{
-   const result=await e.AI.run(model,{messages:[{role:'system',content:'You write ORIGINAL Indonesian fictional entertainment. Output only valid JSON with title,story,caption,imagePrompt, no markdown or commentary.'},{role:'user',content:aiPrompt(channel,format,selected)}],max_tokens:2500,temperature:0.4});
+   const result=await e.AI.run(model,{messages:[{role:'system',content:'You write ORIGINAL Indonesian fictional entertainment. Output only valid JSON with title,story,caption,imagePrompt, no markdown or commentary.'},{role:'user',content:aiPrompt(channel,format,selected)}],max_tokens:1800,temperature:0.4,...(model===mtext?{chat_template_kwargs:{enable_thinking:false}}:{})});
    const text=result?.response||result?.choices?.[0]?.message?.content||result?.output_text||result?.text||'';
    cr=parseAI(text); break;
   }catch(err){lastError=String(err).slice(0,120);}

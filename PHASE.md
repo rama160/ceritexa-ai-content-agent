@@ -1,4 +1,4 @@
-# PHASE — Ceritexa AI Content Agent v1.2.0
+# PHASE — Ceritexa AI Content Agent v1.2.1
 Updated: 2026-10-25 (WITA). Source of truth: test evidence, not feature claims.
 
 | Phase | Status | Verifikasi |
@@ -8,14 +8,14 @@ Updated: 2026-10-25 (WITA). Source of truth: test evidence, not feature claims.
 | 2 Worker API, D1 schema, mobile dashboard | IMPLEMENTED / CLOUDFLARE COMPILE PASS | Dedicated Ceritexa script and D1, not browser E2E verified |
 | 3 D1 database and isolated KV media | VERIFIED VIA CLOUDFLARE API | D1 `ceritexa-content-db`, KV `ceritexa-content-media-kv` |
 | 4 Worker deployment and two Cron schedules | DEPLOYED / 100% SCRIPT VERSION | Cloudflare deployments API confirmed latest version live; health HTTP externally unverified |
-| 5 Workers AI text generation | MODEL API VERIFIED; ENDPOINT E2E PENDING | Gemma 4 26B AI output contains valid title, story, caption and imagePrompt; fallback Llama |
-| 6 Photo/comic generation and owner file uploads | IMPLEMENTED / LIVE E2E PENDING | Flux-1 Schnell documented base64; KV fallback; dashboard upload and preview added |
-| 7 Video automation: image→offline voice→SRT→FFmpeg MP4 | SOURCE AND ACTION ADDED / E2E PENDING | `tools/render_video.py`, GitHub render-video workflow; requires Actions secret |
+| 5 Workers AI text generation | MODEL API VERIFIED; WORKER HTTP E2E PENDING | Gemma 4 26B with enable_thinking=false produced valid 4-field Indonesian story JSON; fallback Llama |
+| 6 Photo/comic generation and owner file uploads | IMAGE MODEL API VERIFIED; WORKER E2E PENDING | Flux-1 Schnell successfully returned base64 JPEG; KV fallback; dashboard media upload and preview added |
+| 7 Video automation: image→offline voice→SRT→FFmpeg MP4 | SOURCE AND ACTION ADDED / CI E2E PENDING | `tools/render_video.py` enforces <=59s complete Shorts; GitHub renderer needs owner-set CERITEXA_ADMIN_TOKEN |
 | 8 Trend research, publishing safety, scheduling | DAILY DRAFT AUTOPILOT ENABLED / LIVE E2E PENDING | Cron daily at 00:00 UTC; D1 paused=false; ALLOW_DAILY_DRAFTS=true; all public publishing OFF |
 | 9 Analytics-to-strategy adaptation | IMPLEMENTED / NOT DATA-VERIFIED | Only changes recommended topics with >=3 published posts and real metrics |
-| 10 Meta Page and YouTube OAuth integration | BLOCKED BY OWNER CONNECTIONS | FB Page ID/token and two Google refresh tokens absent |
+| 10 Meta Page and YouTube OAuth integration | OWNER AUTHORIZATIONS PENDING | Protected identity verification endpoint added; Facebook posts blocked unless Page name begins Ceritexa; YouTube ids must differ; no Facebook/Google provider secrets present |
 | 11 Production publication, Facebook Reels and income | NOT COMPLETE | Requires official provider permissions, E2E, owner activation; FB Reels blocked |
-| 12 Browser auth/health E2E and CI status | NOT VERIFIED | Network from assistant environment could not resolve workers.dev; check Actions |
+| 12 Browser auth/health E2E and CI status | TEST SUITE WRITTEN / NOT RUN VERIFIED | tests/smoke.py validates health, 401 anonymous, admin, provider off; manual GitHub CI requires owner GitHub Secret; external environment cannot reach workers.dev |
 | 13 R2 media storage | NOT AVAILABLE | Cloudflare account R2 API returns disabled/403; KV used only for small pilot files |
 
 ## Concrete Cloudflare checks
@@ -36,3 +36,12 @@ Updated: 2026-10-25 (WITA). Source of truth: test evidence, not feature claims.
 7. Configure YT_CLIENT_ID, YT_CLIENT_SECRET, YT_CHANNEL_ID_PANEX, YT_CHANNEL_ID_HEROS, YT_REFRESH_TOKEN_PANEX, YT_REFRESH_TOKEN_HEROS. Verify distinct channel IDs before **private** upload.
 8. Pull actual platform metrics, evaluate strategy, test Pause All + idempotency.
 9. Only after user authorizes real public posting, enable ALLOW_PUBLICATION; no misleading claim of revenue.
+
+## Implementation check — v1.2.1
+- Latest `ceritexa-content-agent` Worker script uploaded successfully through Cloudflare API (HTTP 200), latest deployed version has **100% traffic**, Cloudflare workers.dev subdomain enabled. No other Worker resources were written.
+- D1 query verified **2 drafts**, both `PENDING_REVIEW`, **0 published**; one labeled `UJI INTERNAL`, one pilot draft. Draft creation via direct AI + D1 API test is not equivalent to end-to-end Worker dashboard verification.
+- `/api/readiness` returns non-sensitive setup checks. `/api/connections/verify` performs identity checks without posting. Both are protected by ADMIN_TOKEN; browser HTTP integration remains owner/CI verification pending.
+- GitHub CI now checks dashboard inline script and Python syntax; manual run also executes real read-only HTTP checks. CI runner outcome **not yet observed**, do not mark as pass.
+- Facebook/YouTube publishing remains OFF (`ALLOW_PUBLICATION=false`), D1 paused=false, daily drafting var=true, monthly draft cap=24. Owner review is always required.
+- ADMIN_TOKEN exists in Cloudflare but owner must rotate to a known secret and set the identical value as GitHub Actions `CERITEXA_ADMIN_TOKEN`; never disclose values in chat or repository.
+- Updated canonical user action list located in README.md under `Owner actions — in order`.

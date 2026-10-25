@@ -1,4 +1,4 @@
-# PRD — Ceritexa AI Content Agent 1.1
+# PRD — Ceritexa AI Content Agent 1.1.2
 Tanggal: 25 Oktober 2026 | Status: IMPLEMENTASI BERTAHAP
 
 ## Produk, pemilik dan batasan

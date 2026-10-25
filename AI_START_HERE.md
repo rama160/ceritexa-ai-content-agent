@@ -1,5 +1,5 @@
 # AI START HERE — Ceritexa canonical rules
-Version 1.1.0 — 2026-10-25
+Version 1.1.2 — 2026-10-25
 
 1. Always read this file, PHASE.md, CHANGELOG.md, PRD.md and ARSITEKTUR.md before work.
 2. Edit existing owner modules rather than writing similar/duplicate files; do not add suffixes *_fixed, *_new, _v2.

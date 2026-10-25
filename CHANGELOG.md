@@ -1,5 +1,6 @@
 # CHANGELOG
 ## 1.1.2 — 2026-10-25
+- Aligned package.json, PRD, architecture, phase and AI_START_HERE versions to v1.1.2.
 - Confirmed isolated Worker deployment at 100% by Cloudflare deployments API, subdomain and Cron still enabled.
 - Verified expected D1/AI/MEDIAKV bindings and no admin secret yet; documented remaining external blockers.
 - No changes to Spenva/Finchat/Nusa Penida deployments.

@@ -1,4 +1,4 @@
-# PHASE — Ceritexa 1.1.0
+# PHASE — Ceritexa 1.1.2
 Updated 2026-10-25.
 
 | Phase | Status |

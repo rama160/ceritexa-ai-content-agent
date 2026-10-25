@@ -1,4 +1,4 @@
-# ARSITEKTUR 1.1.0 — Ceritexa Studio
+# ARSITEKTUR 1.1.2 — Ceritexa Studio
 Single isolated Cloudflare Worker `ceritexa-content-agent`, D1 `ceritexa-content-db`. Optional private R2 `ceritexa-content-media` after owner enables storage.
 
 ```mermaid

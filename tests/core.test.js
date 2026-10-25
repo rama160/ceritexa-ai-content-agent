@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {CHANNELS,validate,detectRisk,parseRss,score,parseAI,compareToken,gate,readiness} from '../src/core.js';
@@ -28,4 +30,11 @@ test('readiness checks never expose secret values or mark provider tests verifie
  assert.equal(report.checks.find(x=>x.id==='provider_e2e').ready,false);
  assert.equal(JSON.stringify(report).includes('TOP_SECRET_DO_NOT_SHOW'),false);
  assert.equal(readiness(fake,true).checks.find(x=>x.id==='review').ready,false);
+});
+
+test('dashboard inline JavaScript must compile',()=>{
+ const workerSource=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
+ const inline=workerSource.match(/<script>\s*([\s\S]*?)<\/script>/)?.[1];
+ assert.ok(inline,'Dashboard inline script found');
+ assert.doesNotThrow(()=>new vm.Script(inline));
 });

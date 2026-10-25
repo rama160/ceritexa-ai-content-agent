@@ -1,0 +1,28 @@
+name: Ceritexa Video Renderer (drafts only)
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "20 */6 * * *"
+permissions:
+  contents: read
+concurrency:
+  group: ceritexa-video-renderer
+  cancel-in-progress: false
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install free offline video toolchain
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg espeak-ng fonts-dejavu-core
+      - name: Render video only to owner-review queue
+        env:
+          CERITEXA_WORKER_URL: https://ceritexa-content-agent.finchat-ai-gateway.workers.dev
+          CERITEXA_ADMIN_TOKEN: ${{ secrets.CERITEXA_ADMIN_TOKEN }}
+        run: python tools/render_video.py

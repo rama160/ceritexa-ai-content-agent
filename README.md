@@ -15,7 +15,7 @@ An isolated Cloudflare Worker and GitHub Actions project for:
 - Workers AI binding: `AI`
 - R2: not available on account; not used
 - Admin token: installed as **Cloudflare Secret ADMIN_TOKEN** (not in GitHub)
-- Public social publishing: **OFF** by default; D1 `paused=true`
+- Public social publishing: **OFF**; automatic DAILY DRAFTS **ON**; D1 `paused=false`
 - OAuth Facebook Page/YouTube: still requires owner authorization
 
 Cloudflare management API has confirmed the Worker script deploy and bindings, **but this environment cannot connect to the workers.dev HTTP hostname**. Public URL and dashboard should be verified from the owner's browser.
@@ -40,7 +40,7 @@ To enable, go to repository → **Settings → Secrets and variables → Actions
 
 ## Cloudflare manual smoke-test
 1. Open dashboard and enter Admin token. The form clears the input after connection and keeps the token only in memory.
-2. Click **Resume Drafting** (public publication stays disabled).
+2. Drafting is already resumed, public publication stays disabled. Use **Pause All** to suspend all scheduled draft/publishing activity.
 3. Click **Riset Tren**. Check the source label (RSS vs evergreen fallback).
 4. Choose Facebook TEXT → **Buat draft**, verify original Indonesian story and `PENDING_REVIEW`.
 5. Choose PHOTO or COMIC; preview generated image; if needed use **Tambah media** for own images.
@@ -59,7 +59,7 @@ Plain Worker vars (IDs, no tokens):
 - `FB_PAGE_ID`
 - `YT_CHANNEL_ID_PANEX`, `YT_CHANNEL_ID_HEROS`
 - `ALLOW_PUBLICATION` — default `false`
-- `ALLOW_DAILY_DRAFTS` — default `false`, enable only after pilot budget/test
+- `ALLOW_DAILY_DRAFTS` — currently `true`, daily 08:00 WITA draft-only rotation (Cloudflare Cron at 00:00 UTC), monthly limit 24
 - `MONTHLY_DRAFT_LIMIT` — default `24`
 
 Use a unique new Facebook Page token belonging to **Ceritexa Studio**, not Nusa Penida Experiences. YouTube identity is verified via `channels.list(mine=true)` before a private upload. Never reuse OAuth credentials from unrelated apps.

@@ -17,6 +17,10 @@ jobs:
           node-version: '22'
       - run: npm run check
       - run: npm test
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m py_compile tools/render_video.py
       - run: |
           test -f AI_START_HERE.md && test -f PHASE.md && test -f CHANGELOG.md
           if git ls-files | grep -E '(^|/)(\.dev\.vars|\.env|credentials\.json)$'; then echo "Secrets file tracked"; exit 1; fi

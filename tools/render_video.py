@@ -36,7 +36,7 @@ def create_subtitles(story: str, seconds: float, path: Path):
     chunks = [" ".join(words[i:i + 9]) for i in range(0, len(words), 9)]
     if not chunks:
         raise ValueError("Empty narration")
-    interval = min(175.0, seconds) / len(chunks)
+    interval = seconds / len(chunks)
     def stamp(s):
         ms = int(s * 1000)
         return f"{ms // 3600000:02}:{ms // 60000 % 60:02}:{ms // 1000 % 60:02},{ms % 1000:03}"
@@ -51,6 +51,8 @@ def render(item, folder: Path):
     story = item["story"].strip()
     if len(story) < 100:
         raise ValueError("Story too short")
+    if len(story.split()) > 145:
+        raise ValueError("Naskah melebihi 145 kata. Edit draft menjadi 95-125 kata agar Shorts lengkap.")
     source = folder / "image.jpg"
     source.write_bytes(request("/api/media/" + ident))
     wav = folder / "voice.wav"
@@ -62,7 +64,9 @@ def render(item, folder: Path):
         ["ffprobe", "-v", "error", "-show_entries", "format=duration",
          "-of", "default=noprint_wrappers=1:nokey=1", str(wav)],
         text=True, timeout=20).strip()
-    duration = min(175.0, float(probe))
+    duration = float(probe)
+    if not (8 < duration <= 59.0):
+        raise ValueError(f"Durasi narasi {duration:.1f}s di luar target Shorts (maks 59s). Edit draft terlebih dahulu.")
     create_subtitles(story, duration, srt)
     filt = "scale=480:854:force_original_aspect_ratio=increase,crop=480:854,format=yuv420p,subtitles=" + str(srt) + ":force_style='FontName=DejaVu Sans,FontSize=15,Outline=2,Shadow=1,MarginV=65'"
     command("ffmpeg", "-y", "-loglevel", "error", "-loop", "1", "-framerate", "24",

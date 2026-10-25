@@ -279,7 +279,14 @@ async function handle(request,e){
 export default{
  async fetch(request,e){try{return await handle(request,e);}catch(error){return answer({error:String(error?.message||error).slice(0,240)},400);}},
  async scheduled(event,e,ctx){e=mediaEnv(e);if(!e.DB)return;ctx.waitUntil((async()=>{
-  if(event.cron==='0 0 * * *'){await analytics(e);await strategy(e);await research(e);if(e.ALLOW_DAILY_DRAFTS==='true'&&!(await isPaused(e)))await makeDraft(e,'facebook','TEXT','');}
+  if(event.cron==='0 0 * * *'){
+   await analytics(e);await strategy(e);await research(e);
+   if(e.ALLOW_DAILY_DRAFTS==='true'&&!(await isPaused(e))){
+    const rotation=[['facebook','TEXT'],['facebook','PHOTO'],['panex','VIDEO'],['facebook','COMIC'],['heros','VIDEO'],['facebook','TEXT'],['panex','VIDEO']];
+    const day=Math.floor(Date.now()/86400000),[channel,format]=rotation[day%rotation.length];
+    await makeDraft(e,channel,format,'');
+   }
+  }
   else await publish(e);
  })().catch(async er=>{await audit(e,'CRON_ERROR','',String(er));}));}
 };

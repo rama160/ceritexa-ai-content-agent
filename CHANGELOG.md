@@ -1,4 +1,10 @@
 # CHANGELOG
+## 1.1.1 — 2026-10-25
+- Created isolated Worker and Cron triggers; D1 schema migrated.
+- Added a separate KV media fallback because Cloudflare R2 is disabled; integration remains unverified.
+- Public posting remains disabled; ADMIN_TOKEN still must be set securely by owner.
+- Cloud HTTP endpoint inaccessible from inspection environment, so E2E not claimed.
+
 ## 1.1.0 — 2026-10-25
 - Replaced former Finchat application tree **only in target repository** with Ceritexa Worker project.
 - New documentation rules, phases, tests, CI.

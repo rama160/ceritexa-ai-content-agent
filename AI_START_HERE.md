@@ -9,7 +9,7 @@ Version 1.1.0 — 2026-10-25
 6. No copied TV, Marvel/DC hero, reused content without permission, fake news, views/follower manipulation or mass posting.
 7. Secrets only in Cloudflare secrets; do not add to public GitHub. Owner approval is mandatory before posting. Default Cloudflare vars ALLOW_PUBLICATION=false, ALLOW_DAILY_DRAFTS=false and D1 paused=true.
 8. Each social channel OAuth must confirm correct channel/page ID. Failed/ambiguous publish => UNCERTAIN, never blind retry.
-9. Do not claim R2/video automation, app review approval, or provider monetization until **live verified**.
+9. Do not claim KV/R2/video automation, app review approval, or provider monetization until **live verified**.
 10. Tests: npm run check, npm test, then D1 health/auth/draft/publisher E2E; record outcomes.
 11. Admin dashboard for mobile only stores ADMIN_TOKEN in page memory, not localStorage.
 12. Monthly draft quota cap and Pause All; never automatically purchase, upgrade, boost posts.

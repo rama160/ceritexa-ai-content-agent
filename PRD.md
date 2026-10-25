@@ -46,7 +46,7 @@ D1–7: setup+3 pilot; D8–14: 6 konten; D15–21: 7 konten; D22–30: 8 konten
 Tren berizin -> pemeriksaan skor/safety -> skrip AI -> gambar panel / teks -> review hak -> admin approval -> schedule -> adapter resmi -> metrics -> evaluasi -> strategi (tidak belajar dari views total lifetime).
 
 ## Non-fungsional
-P0: no secret in repo/logs; auth header; idempotency; R2 private; fail-closed network; anti-spam, rate limit. All timestamps UTC in DB, UI WITA; worker cron UTC. D1 & R2 quotas monitored. Availability target conditional on platform APIs, no automatic retry ambiguous publication.
+P0: no secret in repo/logs; auth header; idempotency; KV private media fallback (R2 when enabled); fail-closed network; anti-spam, rate limit. All timestamps UTC in DB, UI WITA; worker cron UTC. D1 & KV quotas monitored. Availability target conditional on platform APIs, no automatic retry ambiguous publication.
 
 ## Pengecualian jujur
 Video otomatis lengkap, integrasi produksi, dan analytics resmi belum dianggap selesai sampai E2E nyata serta OAuth tervalidasi. Deploy saja bukan bukti autopilot.

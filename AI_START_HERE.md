@@ -25,3 +25,6 @@ Version 1.2.1 — 2026-10-25
 20. Dashboard provides /api/readiness and /api/connections/verify (admin-only); readiness checks are configuration checks, not proof that provider permissions or publication are operational.
 21. Manual GitHub Actions CI includes read-only HTTP smoke with 401 anonymous checks (tests/smoke.py); it requires owner to mirror rotated ADMIN_TOKEN in GitHub Secret CERITEXA_ADMIN_TOKEN.
 22. GitHub renderer refuses video longer than 59 seconds or drafts over 145 words; edit existing draft to create a complete ~95-125 word Short rather than trimming speech.
+
+23. Public OAuth brand site is exclusively in `docs/index.html`, `docs/privacy.html`, `docs/terms.html` and shared `docs/style.css`; update these existing files, never add duplicate homepage/privacy/terms files elsewhere. Its role is public documentation, completely separate from the protected Worker dashboard.
+24. Production OAuth settings require real accessible links and ownership verification; GitHub Pages deployment from main:/docs is OWNER ACTION because this integration cannot change repository Pages settings. Do not claim GitHub Pages URL works until real external HTTP check succeeds. GitHub Pages hostname ending .github.io is shared, so Google Search Console verification may need a separately controlled domain.

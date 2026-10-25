@@ -49,3 +49,27 @@ export function gate(p){
  if(p.channel==='facebook'&&p.format==='VIDEO')return 'FACEBOOK_REELS_API_NOT_CONNECTED';
  return '';
 }
+
+/** Return non-sensitive setup checks for the owner dashboard. No secret values are exposed. */
+export function readiness(env, paused) {
+ const ready = (id, label, ok, next) => ({id, label, ready: Boolean(ok), next: ok ? '' : next});
+ const facebook=Boolean(env.FB_PAGE_ID && env.FB_PAGE_ACCESS_TOKEN);
+ const ytShared=Boolean(env.YT_CLIENT_ID && env.YT_CLIENT_SECRET);
+ return {
+  project: 'Ceritexa AI Content Agent',
+  reviewRequired: true,
+  publicationEnabled: env.ALLOW_PUBLICATION === 'true',
+  checks: [
+   ready('database','Database D1 Ceritexa',env.DB,'Periksa binding DB pada Worker Ceritexa'),
+   ready('media','Storage media KV / R2',env.MEDIA || env.MEDIAKV,'Periksa binding MEDIAKV khusus Ceritexa'),
+   ready('ai','Workers AI',env.AI,'Periksa binding AI pada Worker Ceritexa'),
+   ready('admin','Admin Secret',env.ADMIN_TOKEN && env.ADMIN_TOKEN.length >= 24,'Atur ADMIN_TOKEN sebagai Cloudflare secret >=24 karakter'),
+   ready('review','Drafting tidak dijeda',!paused,'Tekan Resume Drafting di dashboard'),
+   ready('facebook','Facebook Page Ceritexa',facebook,'Atur FB_PAGE_ID dan FB_PAGE_ACCESS_TOKEN khusus Ceritexa Studio'),
+   ready('panex','OAuth YouTube Panex',ytShared && env.YT_CHANNEL_ID_PANEX && env.YT_REFRESH_TOKEN_PANEX,'Atur client OAuth, YT_CHANNEL_ID_PANEX dan YT_REFRESH_TOKEN_PANEX'),
+   ready('heros','OAuth YouTube Heros',ytShared && env.YT_CHANNEL_ID_HEROS && env.YT_REFRESH_TOKEN_HEROS,'Atur client OAuth, YT_CHANNEL_ID_HEROS dan YT_REFRESH_TOKEN_HEROS'),
+   ready('renderer','Video draft GitHub Actions',false,'Tambahkan CERITEXA_ADMIN_TOKEN di GitHub Actions Secrets, jalankan dan periksa workflow render-video'),
+   ready('provider_e2e','Uji posting resmi Facebook dan YouTube',false,'Jalankan tes terkontrol dengan akun resmi sebelum aktifkan publikasi')
+  ]
+ };
+}

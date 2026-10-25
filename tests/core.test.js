@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {CHANNELS,validate,detectRisk,parseRss,score,parseAI,compareToken,gate} from '../src/core.js';
+import {CHANNELS,validate,detectRisk,parseRss,score,parseAI,compareToken,gate,readiness} from '../src/core.js';
 test('kanal terisolasi',()=>{assert.match(CHANNELS.panex.topic,/keluarga/);assert.match(CHANNELS.heros.topic,/superhero/);assert.throws(()=>validate('panex','TEXT'));assert.equal(validate('facebook','PHOTO'),true)});
 test('mengurai RSS',()=>{const x='<item><title><![CDATA[Drama &amp; Keluarga]]></title><link>https://example.org/a</link></item>';assert.equal(parseRss(x)[0].topic,'Drama & Keluarga')});
 test('menolak IP eksternal',()=>{assert.ok(detectRisk('Batman'));assert.equal(score('Marvel hero','heros'),0)});
@@ -16,4 +16,16 @@ test('MP4 and image MIME review gate',()=>{
  assert.equal(gate(fb),'FACEBOOK_REELS_API_NOT_CONNECTED');
  const image={...p,channel:'facebook',format:'PHOTO',media_type:'video/mp4'};
  assert.equal(gate(image),'IMAGE_REQUIRED');
+});
+
+test('readiness checks never expose secret values or mark provider tests verified',()=>{
+ const fake={DB:{},MEDIAKV:{},AI:{},ADMIN_TOKEN:'z'.repeat(30),FB_PAGE_ID:'123',FB_PAGE_ACCESS_TOKEN:'TOP_SECRET_DO_NOT_SHOW',ALLOW_PUBLICATION:'false'};
+ const report=readiness(fake,false);
+ assert.equal(report.publicationEnabled,false);
+ assert.equal(report.checks.find(x=>x.id==='database').ready,true);
+ assert.equal(report.checks.find(x=>x.id==='facebook').ready,true);
+ assert.equal(report.checks.find(x=>x.id==='panex').ready,false);
+ assert.equal(report.checks.find(x=>x.id==='provider_e2e').ready,false);
+ assert.equal(JSON.stringify(report).includes('TOP_SECRET_DO_NOT_SHOW'),false);
+ assert.equal(readiness(fake,true).checks.find(x=>x.id==='review').ready,false);
 });

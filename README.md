@@ -1,33 +1,83 @@
-# Ceritexa AI Content Agent
+# Ceritexa AI Content Agent — v1.2.0
 
-Worker dashboard & orchestration for **Facebook Ceritexa Studio**, **YouTube Panex** (life stories), and **YouTube Heros Real Life** (original superheroes).
+An isolated Cloudflare Worker and GitHub Actions project for:
+- **Ceritexa Studio** (Facebook Page, text/photo/comic)
+- **Panex** (YouTube, real-life fictional dramas)
+- **Heros Real Life** (YouTube, original heroes and fantasy)
 
-## Status and safe deployment
-The new, isolated Cloudflare Worker (public URL on account workers.dev suffix) is `ceritexa-content-agent` and D1 is `ceritexa-content-db`. R2 is **not yet enabled** on the account; a new isolated Workers KV media fallback is bound as MEDIAKV for limited pilot images/short clips. Media generation is unverified until ADMIN_TOKEN and API smoke tests. Meta/YouTube OAuth secrets are **not configured**. Publishing is disabled by default, and D1 setting paused starts true. Do not claim public posting ready.
+**No code, database, secrets, routes or deployments of Nusa Penida Experiences, Spenva or Finchat are shared.** The account's legacy workers.dev suffix `finchat-ai-gateway` is merely the shared domain label.
 
-## Quick start
-Read `AI_START_HERE.md`, `PHASE.md`, `PRD.md`, `ARSITEKTUR.md`, `CHANGELOG.md`.
+## Live resource inventory
+- Worker: `ceritexa-content-agent`
+- Dashboard: **https://ceritexa-content-agent.finchat-ai-gateway.workers.dev/**
+- D1: `ceritexa-content-db`
+- KV: `ceritexa-content-media-kv` (isolated fallback for small files)
+- Workers AI binding: `AI`
+- R2: not available on account; not used
+- Admin token: installed as **Cloudflare Secret ADMIN_TOKEN** (not in GitHub)
+- Public social publishing: **OFF** by default; D1 `paused=true`
+- OAuth Facebook Page/YouTube: still requires owner authorization
+
+Cloudflare management API has confirmed the Worker script deploy and bindings, **but this environment cannot connect to the workers.dev HTTP hostname**. Public URL and dashboard should be verified from the owner's browser.
+
+## Documentation rule (MANDATORY)
+Read `AI_START_HERE.md`, `PHASE.md`, `CHANGELOG.md`, `PRD.md`, `ARSITEKTUR.md` before changes. Fix owner file instead of creating duplicates. Record every change in PHASE and CHANGELOG. Do not claim E2E deployment success without actual E2E checks.
+
+## How the workflow works
+```
+Trend research -> original AI story -> optional AI artwork -> owner media upload
+    -> manual review / license check -> owner approves -> UTC schedule
+    -> official Facebook Page / YouTube adapters (when connected)
+    -> engagement metrics -> strategy topic feedback -> next AI draft
+```
+
+The owner must approve **each** post. An AI-generated VIDEO draft includes artwork and waits in BLOCKED / VIDEO_RENDER_REQUIRED until rendered.
+
+## Free video rendering (no VPS)
+`tools/render_video.py` runs only in `.github/workflows/render-video.yml`. The GitHub workflow uses offline Indonesian `espeak-ng`, FFmpeg and SRT subtitles to create a small vertical MP4 and upload it to the existing draft for review, **not** to Facebook/YouTube. It checks Pause All. Results depend on GitHub Actions availability, Worker reachability and voice quality. It is not a premium cinematic generative video model.
+
+To enable, go to repository → **Settings → Secrets and variables → Actions → New repository secret** and create `CERITEXA_ADMIN_TOKEN`, with the exact same value as the Cloudflare Worker ADMIN_TOKEN delivered privately to the owner. Do NOT commit or paste token in issues/PRs. Run **Actions → Ceritexa Video Renderer → Run workflow** for the first test.
+
+## Cloudflare manual smoke-test
+1. Open dashboard and enter Admin token. The form clears the input after connection and keeps the token only in memory.
+2. Click **Resume Drafting** (public publication stays disabled).
+3. Click **Riset Tren**. Check the source label (RSS vs evergreen fallback).
+4. Choose Facebook TEXT → **Buat draft**, verify original Indonesian story and `PENDING_REVIEW`.
+5. Choose PHOTO or COMIC; preview generated image; if needed use **Tambah media** for own images.
+6. Review content, media license and platform policy; **Setujui setelah review**, then choose explicit local date/time.
+7. To test Shorts: choose Panex/Heros VIDEO, let GitHub video-render workflow create MP4, then review and approve it.
+8. Test `/api/health`, unauthenticated `/api/status` must return 401; `Pause All` must prevent scheduled processing.
+9. Facebook Page and both YouTube channels must be connected to official provider APIs before enabling external publishing.
+
+## Cloudflare secrets and vars
+Secrets (Worker Settings → Variables & Secrets → Secret):
+- `ADMIN_TOKEN` (already installed; store in secure password manager)
+- `FB_PAGE_ACCESS_TOKEN`
+- `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN_PANEX`, `YT_REFRESH_TOKEN_HEROS`
+
+Plain Worker vars (IDs, no tokens):
+- `FB_PAGE_ID`
+- `YT_CHANNEL_ID_PANEX`, `YT_CHANNEL_ID_HEROS`
+- `ALLOW_PUBLICATION` — default `false`
+- `ALLOW_DAILY_DRAFTS` — default `false`, enable only after pilot budget/test
+- `MONTHLY_DRAFT_LIMIT` — default `24`
+
+Use a unique new Facebook Page token belonging to **Ceritexa Studio**, not Nusa Penida Experiences. YouTube identity is verified via `channels.list(mine=true)` before a private upload. Never reuse OAuth credentials from unrelated apps.
+
+## Developer commands
 ```bash
-npm test
 npm run check
+npm test
+python -m py_compile tools/render_video.py
 npx wrangler d1 migrations apply ceritexa-content-db --remote
-npx wrangler secret put ADMIN_TOKEN
 npx wrangler deploy
 ```
-Use a random admin token >=24 chars. Login at the Worker URL. Only the public health endpoint needs no token.
+There is no automatic production deploy triggered by pushes; CI tests only. Do not overwrite the existing Worker with unverified source.
 
-## Current capabilities
-- Trend research from Google Trends RSS; transparently labeled fallback ideas.
-- Draft text (Workers AI), optional image using KV fallback, review and UTC scheduling.
-- Dashboard for approval & analytics, protective pause; no unapproved post.
-- Facebook Page text/photos adapter; YouTube private MP4 uploader and per-channel verification are implemented but **untested pending credentials, R2, provider permissions**.
-- Video composer/render pipeline **not implemented**; short MP4 can be uploaded using KV after integrations are tested.
-- No auth secrets in this public repo. No worker code from Nusa Penida Experiences or Spenva/Finchat is modified.
-
-## Required one-time owner action: Admin login and integrations
-1. Open [Cloudflare dashboard](https://dash.cloudflare.com/), Workers & Pages → **ceritexa-content-agent** → Settings → Variables and Secrets.
-2. Create a **secret** `ADMIN_TOKEN` containing a new random passphrase of at least 24 characters (not a normal plain variable). Save it privately, never commit it to this public repo.
-3. Open `https://ceritexa-content-agent.finchat-ai-gateway.workers.dev/` and enter the token. The account workers.dev suffix is shared, **not the Worker code/resources**.
-4. First test `/api/health`, admin login, research, one AI text draft and approval. If Workers AI model has no access, check the model and quotas.
-5. Set up a new Ceritexa Facebook Page and verify Page token; configure Panex and Heros YouTube OAuth tokens with separate verified channel IDs. The publishing switch MUST remain off until owner checks live/private smoke tests.
-6. The app currently cannot auto-render full-length video nor upload Facebook Reels; this is not a finished autonomous multimedia agent.
+## Known limitations
+- Actual Facebook/YouTube provider publishing cannot be verified until owner authorizes official APIs; no expected views or income guarantees.
+- Fully automated Facebook Reels is blocked by strict safety gates until its API publisher exists.
+- KV media files and render size limited to 8 MB; for larger videos enable separate R2 when available.
+- Strategy adapts topic preferences only on measurable engagement from at least three published posts/channel.
+- Current TTS quality is utilitarian, not cinematic; for higher quality configure a licensed voice provider in a later gated phase.
+- GitHub Actions scheduled jobs can be delayed, paused or disabled by GitHub; workflow requires one-time repo secret.

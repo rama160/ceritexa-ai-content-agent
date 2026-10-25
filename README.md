@@ -94,3 +94,14 @@ There is no automatic production deploy triggered by pushes; CI tests only. Do n
 8. **Optional, not blocking initial pilot**. Consider enabling R2 when you have an accepted payment/activation route. The isolated KV storage already supports limited images and small MP4 files; it is not a scalable media library.
 
 Expected user effort: token rotation / GitHub action secret, approving the first draft, Meta Page authorization, OAuth for Panex and Heros. The agent does not need a VPS.
+
+## Social integration onboarding — 2026-10-25
+Current owner-confirmed: onboarding steps 1-3 (admin login, repository action connection and dashboard checks) performed. Before public publication, owner must configure:
+- Meta Developer app with **Manage everything on your Page** use case and Page posting scopes. Official https://developers.facebook.com/docs/pages-api/getting-started
+- The **Ceritexa Studio** Facebook Page identifier under the Ceritexa Worker binding FB_PAGE_ID and corresponding Page credential under the existing protected FB_PAGE_ACCESS_TOKEN binding. Never reuse the Nusa Penida Experiences Page.
+- A separate Google Cloud project for Ceritexa with **YouTube Data API v3**, Google Auth Platform (Branding, Audience, Data Access, Clients), a Web OAuth client and offline consent for each distinct channel. https://developers.google.com/youtube/data/guides/auth/server-side-web-apps
+- Each channel must be confirmed by YouTube channels.list mine=true. Obtain Panex and Heros Real Life distinct channel IDs from YouTube Advanced settings. https://support.google.com/youtube/answer/3250431?hl=id
+- Current integration bindings: YT_CLIENT_ID, YT_CLIENT_SECRET, YT_REFRESH_TOKEN_PANEX, YT_REFRESH_TOKEN_HEROS (protected); YT_CHANNEL_ID_PANEX and YT_CHANNEL_ID_HEROS (ordinary non-secret identifiers).
+- Google external OAuth applications in Testing may give only 7-day authorizations; move to In production and complete the applicable verification before sustained autopilot. https://developers.google.com/identity/protocols/oauth2
+- Confirm identity in Dashboard → **Uji koneksi sosial**; expect three verified=true results, separate channel IDs, and Facebook Page name **Ceritexa Studio**.
+- Keep ALLOW_PUBLICATION=false until official controlled end-to-end tests and explicit owner launch approval. Existing YouTube uploader always sets videos private; Facebook Reels is not yet available.

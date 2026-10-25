@@ -57,6 +57,6 @@ Tests + build green, Cloudflare bound and deploy, admin denied without token, po
 ## v1.2.0 — Implemented pilot additions and limits
 - Original AI video draft generates a still image; GitHub Actions renderer composes image, offline Indonesian speech and subtitles into a <8MB MP4. The owner still reviews before approval. Actions requires CERITEXA_ADMIN_TOKEN GitHub secret and can have schedule delays.
 - Adaptive editorial planning evaluates actual post engagement per distinct channel and suggests top-performing subject only after >=3 published posts with recorded metrics. It cannot autonomously change brand, buy services, change OAuth scopes or delete posts.
-- The automated daily draft rotation is split between Ceritexa Facebook TEXT/PHOTO/COMIC, Panex VIDEO and Heros VIDEO, with hard monthly quota. Initial Cloudflare setting is paused; owner may explicitly resume drafting.
+- The automated daily draft rotation is split between Ceritexa Facebook TEXT/PHOTO/COMIC, Panex VIDEO and Heros VIDEO, with hard monthly quota. Deployed Cloudflare setting now allows daily draft-only rotation; public publication remains disabled and owner must explicitly approve every item.
 - Provider OAuth integrations, Facebook Reels uploader, real YouTube public posting, final analytics and monetization remain external acceptance gates. Never represent them as verified or guaranteed.
 - R2 unavailable: KV file fallback is used only for pilot media <=8MB, not large-scale production.

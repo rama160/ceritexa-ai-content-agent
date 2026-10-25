@@ -7,7 +7,7 @@ Version 1.2.0 — 2026-10-25
 4. Never modify/delete/access Spenva, Finchat or Nusa Penida Experiences resources, code, secrets or repositories.
 5. Three channels: Panex = life stories; Heros Real Life = **original** superhero; Ceritexa Facebook = diverse original text/photo/comic/reels.
 6. No copied TV, Marvel/DC hero, reused content without permission, fake news, views/follower manipulation or mass posting.
-7. Secrets only in Cloudflare secrets; do not add to public GitHub. Owner approval is mandatory before posting. Default Cloudflare vars ALLOW_PUBLICATION=false, ALLOW_DAILY_DRAFTS=false and D1 paused=true.
+7. Secrets only in Cloudflare secrets; do not add to public GitHub. Owner approval is mandatory before posting. **Current deployed Ceritexa config:** ALLOW_PUBLICATION=false (public posting OFF), ALLOW_DAILY_DRAFTS=true (daily draft generation), D1 paused=false (draft mode resumed by explicit owner request). Never change ALLOW_PUBLICATION to true before provider E2E approval.
 8. Each social channel OAuth must confirm correct channel/page ID. Failed/ambiguous publish => UNCERTAIN, never blind retry.
 9. Do not claim KV/R2/video automation, app review approval, or provider monetization until **live verified**.
 10. Tests: npm run check, npm test, then D1 health/auth/draft/publisher E2E; record outcomes.

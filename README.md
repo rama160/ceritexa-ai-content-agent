@@ -105,3 +105,25 @@ Current owner-confirmed: onboarding steps 1-3 (admin login, repository action co
 - Google external OAuth applications in Testing may give only 7-day authorizations; move to In production and complete the applicable verification before sustained autopilot. https://developers.google.com/identity/protocols/oauth2
 - Confirm identity in Dashboard → **Uji koneksi sosial**; expect three verified=true results, separate channel IDs, and Facebook Page name **Ceritexa Studio**.
 - Keep ALLOW_PUBLICATION=false until official controlled end-to-end tests and explicit owner launch approval. Existing YouTube uploader always sets videos private; Facebook Reels is not yet available.
+
+## Google OAuth Branding — public pages (added 2026-10-26)
+
+Ceritexa's public branding site now lives in this repository's **single canonical `docs/` folder**:
+- `docs/index.html` — public homepage describing Ceritexa's AI-assisted original content service, owner-controlled approval and three channels.
+- `docs/privacy.html` — complete plain-English Privacy Policy for Google YouTube API and Facebook Page data.
+- `docs/terms.html` — Terms of Service.
+- `docs/style.css` — a single shared stylesheet; do not duplicate page CSS.
+
+**Owner activation required** (GitHub connector does not manage GitHub Pages settings):
+1. This repository → **Settings → Pages → Build and deployment**.
+2. Source: **Deploy from a branch**; Branch: **main**; Folder: **/docs** → Save.
+3. Wait for GitHub Pages deployment, then open the three URLs in a private/incognito browser and check HTTP success before entering them in Google OAuth Branding:
+   - Application home page: `https://rama160.github.io/ceritexa-ai-content-agent/`
+   - Application privacy policy link: `https://rama160.github.io/ceritexa-ai-content-agent/privacy.html`
+   - Application terms of service link: `https://rama160.github.io/ceritexa-ai-content-agent/terms.html`
+4. Google Cloud → Google Auth Platform → Branding → **Authorized domains**: enter `rama160.github.io` (domain only, no https or path), once the domain verification prerequisites are met. Do **not** enter `github.io` alone or `finchat-ai-gateway.workers.dev`.
+5. Google may require that the registrable domain be verified using **Google Search Console** by a project owner. A public GitHub Pages URL is **not itself proof of domain ownership**. If Google's verification rejects the shared GitHub Pages domain, use a domain/subdomain you can control and verify, and update the URLs accordingly; do not claim production approval prematurely.
+6. Logo: square 120×120 PNG <=1MB; user can upload the optimized Ceritexa branding logo supplied separately in the chat. Uploading an app logo to an External production OAuth consent screen can trigger brand verification.
+7. Google Auth Platform → Audience → Publish app / In production when available; branding verification and sensitive-scope review may remain separate checks, and YouTube private upload/API audit restrictions can still apply. The authorization flow must be re-run if previously issued Testing refresh tokens are expired or scope-incomplete.
+
+**Current status:** public page source committed; GitHub Pages activation and external HTTP accessibility **not verified**. Never paste tokens into these static files. This documentation-only change must not update Cloudflare Worker bindings or any unrelated repo.

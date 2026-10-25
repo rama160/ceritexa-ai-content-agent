@@ -59,3 +59,9 @@
 - Created isolated Cloudflare D1 database.
 - R2 unavailable (requires activation in dashboard); external channel OAuth not set, no live posts.
 - Public posting off; no existing Cloudflare Workers affected.
+
+## 2026-10-26 — Google OAuth Branding preparation
+- Added public branding homepage, privacy policy, terms of service and one shared stylesheet to `docs/` for optional free GitHub Pages deployment (specific to Ceritexa).
+- Documented candidate homepage/policy/terms URLs and Google Auth Platform field names in existing README; Pages activation and HTTP confirmation remain owner tasks.
+- Clarified Google Authorized domains and Search Console ownership verification caveat; do not infer that public pages or Google production review have been approved.
+- Generated compact 120x120 PNG copy of the Ceritexa logo in the conversation for upload under Google's 1MB requirement. No binary credential or secret committed.

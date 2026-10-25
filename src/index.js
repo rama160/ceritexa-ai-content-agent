@@ -35,7 +35,9 @@ export async function makeDraft(e,channel,format,topic){
  const limit=Math.max(1,Math.min(100,Number(e.MONTHLY_DRAFT_LIMIT||24)));
  const used=await row(e,'SELECT COUNT(*) n FROM posts WHERE created_at>=?',utc().slice(0,7)+'-01');
  if(Number(used?.n||0)>=limit)throw Error('Batas draft bulanan tercapai');
- const selected=String(topic||'').slice(0,150).trim()||((await row(e,'SELECT topic FROM trends ORDER BY created_at DESC LIMIT 1'))?.topic)||CHANNELS[channel].topic;
+ const savedStrategy=await row(e,'SELECT value FROM settings WHERE key=?','strategy_'+channel);
+ const leader=savedStrategy?.value?JSON.parse(savedStrategy.value).recommendedTopic:null;
+ const selected=String(topic||'').slice(0,150).trim()||leader||((await row(e,'SELECT topic FROM trends ORDER BY created_at DESC LIMIT 1'))?.topic)||CHANNELS[channel].topic;
  if(detectRisk(selected))throw Error('Topik berisiko hak cipta');
  const result=await e.AI.run(mtext,{messages:[{role:'system',content:'You write original fictional entertainment in JSON only.'},{role:'user',content:aiPrompt(channel,format,selected)}],max_tokens:2048,temperature:0.7});
  const cr=parseAI(result?.response||result?.output_text||result?.text);
@@ -184,9 +186,27 @@ async function analytics(e){
  }
  return {updated,errors};
 }
+async function strategy(e){
+ const rows=await list(e,`SELECT p.channel,p.topic,COUNT(DISTINCT p.id) AS posts,
+ SUM(CASE WHEN m.metric='views' THEN COALESCE(m.value,0) ELSE 0 END) AS views,
+ SUM(CASE WHEN m.metric='likes' THEN COALESCE(m.value,0) ELSE 0 END) AS likes,
+ SUM(CASE WHEN m.metric='comments' THEN COALESCE(m.value,0) ELSE 0 END) AS comments
+ FROM posts p LEFT JOIN metrics m ON m.post_id=p.id
+ WHERE p.state='PUBLISHED' GROUP BY p.channel,p.topic`);
+ const report={};
+ for(const channel of Object.keys(CHANNELS)){
+  const items=rows.filter(r=>r.channel===channel).map(r=>({...r,score:(Number(r.likes)+2*Number(r.comments))/Math.max(100,Number(r.views)||100)})).sort((a,b)=>b.score-a.score);
+  const samples=items.reduce((n,r)=>n+Number(r.posts),0);
+  const insight={channel,samples,ready:samples>=3&&items.some(x=>x.likes>0||x.comments>0||x.views>0),recommendedTopic:null,reason:'Belum ada 3 publikasi dengan metrik nyata',top:items.slice(0,5)};
+  if(insight.ready){insight.recommendedTopic=items[0].topic;insight.reason='Topik mendapat respons tertinggi berdasarkan metrik yang tersedia. Rekomendasi bersifat eksplorasi, bukan jaminan viral.';await run(e,"INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",'strategy_'+channel,JSON.stringify(insight));}
+  report[channel]=insight;
+ }
+ await audit(e,'STRATEGY_EVALUATED','',Object.keys(report).map(k=>k+':'+report[k].samples).join(','));
+ return report;
+}
 const page=`<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ceritexa Studio — AI Content Agent</title><style>
 :root{font-family:system-ui,-apple-system,sans-serif;color:#eaf0ff;background:#0c1020}*{box-sizing:border-box}body{margin:0}header{padding:20px;background:linear-gradient(120deg,#203361,#321750);border-bottom:1px solid #3a4264}h1{margin:4px 0;font-size:24px}small,.muted{color:#aeb8d3}main{max-width:1050px;margin:auto;padding:16px}.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}button,select,input{font:inherit;padding:10px;border-radius:9px;border:1px solid #4e5a83;color:#eaf0ff;background:#1c2544}button{cursor:pointer}button:hover{background:#2b3b65}button.primary{background:#374ea1}input{max-width:100%}article{background:#171d35;border:1px solid #313b60;border-radius:13px;padding:14px;margin:12px 0}section{margin:20px 0}.card{background:#121830;border:1px solid #313b60;padding:14px;border-radius:12px;margin:10px 0}h3{margin:5px 0}.tag{color:#b8dcff;font-size:12px}p{overflow-wrap:anywhere}pre{white-space:pre-wrap;max-height:300px;overflow:auto}#notice{min-height:24px;color:#d8ed9a}label{font-size:13px;color:#b6c6ed}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}@media(max-width:520px){header{padding:14px}main{padding:12px}h1{font-size:20px}}
-</style></head><body><header><h1>✦ Ceritexa Studio</h1><small>AI Director · Panex · Heros Real Life · Facebook Page</small></header><main><article><div class="bar"><label for="token">Admin token (hanya di memori halaman)</label><input type="password" id="token" autocomplete="off" placeholder="Masukkan ADMIN_TOKEN"><button class="primary" id="refresh">Hubungkan</button></div><p id="notice">Masukkan token setelah dibuat di Cloudflare Dashboard. Public posting OFF.</p></article><section><h2>Status & kendali</h2><div id="status" class="cols"></div><div class="bar"><button id="pause">Pause All</button><button id="resume">Resume Drafting</button><button id="trends">Riset Tren</button><button id="metrics">Ambil Statistik</button><button id="publish">Periksa Jadwal</button></div></section><section><h2>Buat draft AI</h2><article><div class="bar"><select id="channel"><option value="facebook">Facebook Ceritexa</option><option value="panex">YouTube Panex</option><option value="heros">YouTube Heros</option></select><select id="format"><option>TEXT</option><option>PHOTO</option><option>COMIC</option><option>VIDEO</option></select><input id="topic" placeholder="Topik opsional"><button class="primary" id="generate">Buat draft</button></div><small>AI hanya membuat draft. Foto/komik menggunakan media KV; video memerlukan renderer. YouTube hanya menerima VIDEO.</small></article></section><section><h2>Konten dan persetujuan</h2><div id="posts"></div></section><section><h2>Tren</h2><div id="trendlist"></div></section></main><script>
+</style></head><body><header><h1>✦ Ceritexa Studio</h1><small>AI Director · Panex · Heros Real Life · Facebook Page</small></header><main><article><div class="bar"><label for="token">Admin token (hanya di memori halaman)</label><input type="password" id="token" autocomplete="off" placeholder="Masukkan ADMIN_TOKEN"><button class="primary" id="refresh">Hubungkan</button></div><p id="notice">Masukkan token setelah dibuat di Cloudflare Dashboard. Public posting OFF.</p></article><section><h2>Status & kendali</h2><div id="status" class="cols"></div><div class="bar"><button id="pause">Pause All</button><button id="resume">Resume Drafting</button><button id="trends">Riset Tren</button><button id="metrics">Ambil Statistik</button><button id="strategy">Evaluasi strategi</button><button id="publish">Periksa Jadwal</button></div></section><section><h2>Buat draft AI</h2><article><div class="bar"><select id="channel"><option value="facebook">Facebook Ceritexa</option><option value="panex">YouTube Panex</option><option value="heros">YouTube Heros</option></select><select id="format"><option>TEXT</option><option>PHOTO</option><option>COMIC</option><option>VIDEO</option></select><input id="topic" placeholder="Topik opsional"><button class="primary" id="generate">Buat draft</button></div><small>AI hanya membuat draft. Foto/komik menggunakan media KV; video memerlukan renderer. YouTube hanya menerima VIDEO.</small></article></section><section><h2>Konten dan persetujuan</h2><div id="posts"></div></section><section><h2>Strategi berbasis metrik</h2><pre id="strategyResult">Belum dievaluasi.</pre></section><section><h2>Tren</h2><div id="trendlist"></div></section></main><script>
 let token='';const el=id=>document.getElementById(id);const safe=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function api(path,opts={}){if(!token)throw Error('Masukkan ADMIN_TOKEN');const r=await fetch('/api/'+path,{...opts,headers:{'Authorization':'Bearer '+token,...(opts.headers||{})}});let data=await r.json().catch(()=>({error:'Respons bukan JSON'}));if(!r.ok)throw Error(data.error||'HTTP '+r.status);return data}
 async function action(path,data){return api(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data||{})})}
@@ -201,7 +221,7 @@ document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>work(async()=>
 }
 el('refresh').onclick=()=>{token=el('token').value;el('token').value='';work(async()=>{await refresh();return {connected:true}})};
 el('pause').onclick=()=>work(()=>action('pause',{paused:true}));el('resume').onclick=()=>work(()=>action('pause',{paused:false}));
-el('trends').onclick=()=>work(()=>action('research'));el('metrics').onclick=()=>work(()=>action('metrics'));el('publish').onclick=()=>work(()=>action('publish'));
+el('trends').onclick=()=>work(()=>action('research'));el('metrics').onclick=()=>work(()=>action('metrics'));el('strategy').onclick=()=>work(async()=>{const v=await action('strategy');el('strategyResult').textContent=JSON.stringify(v,null,2);return {strategyEvaluated:true}});el('publish').onclick=()=>work(()=>action('publish'));
 el('generate').onclick=()=>work(()=>action('generate',{channel:el('channel').value,format:el('format').value,topic:el('topic').value}));
 el('channel').onchange=()=>{if(el('channel').value!=='facebook')el('format').value='VIDEO'};
 </script></body></html>`;
@@ -226,18 +246,20 @@ async function handle(request,e){
  if(method==='GET'&&p==='/api/posts')return answer({posts:await list(e,'SELECT * FROM posts ORDER BY created_at DESC LIMIT 100')});
  if(method==='GET'&&p==='/api/trends')return answer({trends:await list(e,'SELECT * FROM trends ORDER BY created_at DESC LIMIT 30')});
  if(method==='GET'&&p==='/api/analytics')return answer({analytics:await list(e,'SELECT * FROM metrics ORDER BY observed_at DESC LIMIT 100')});
+ if(method==='GET'&&p==='/api/strategy')return answer(await strategy(e));
  if(method==='GET'&&p==='/api/audit')return answer({events:await list(e,'SELECT * FROM audit ORDER BY at DESC LIMIT 40')});
  if(method==='GET'&&p.startsWith('/api/media/'))return media(e,p.slice('/api/media/'.length));
  if(method==='POST'){
   const l=Number(request.headers.get('Content-Length')||0);
   if(l>8_000_000)return answer({error:'Payload too large'},413);
   let data={};
-  if(p!=='/api/research'&&p!=='/api/publish'&&p!=='/api/metrics'&&!p.endsWith('/media')){if(l>12000)return answer({error:'JSON too large'},413);data=await request.json();}
+  if(p!=='/api/research'&&p!=='/api/publish'&&p!=='/api/metrics'&&p!=='/api/strategy'&&!p.endsWith('/media')){if(l>12000)return answer({error:'JSON too large'},413);data=await request.json();}
   if(p==='/api/research')return answer(await research(e));
   if(p==='/api/generate')return answer(await makeDraft(e,data.channel,data.format,data.topic),201);
   if(p==='/api/pause'){if(typeof data.paused!=='boolean')throw Error('paused harus boolean');await run(e,"INSERT INTO settings(key,value) VALUES('paused',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",String(data.paused));await audit(e,'PAUSE',String(data.paused));return answer({paused:data.paused});}
   if(p==='/api/publish')return answer(await publish(e));
   if(p==='/api/metrics')return answer(await analytics(e));
+  if(p==='/api/strategy')return answer(await strategy(e));
   const match=p.match(/^\/api\/posts\/([0-9a-f-]{36})\/(approve|schedule|media)$/);
   if(match){
    if(match[2]==='approve')return answer(await approve(e,match[1]));
@@ -250,7 +272,7 @@ async function handle(request,e){
 export default{
  async fetch(request,e){try{return await handle(request,e);}catch(error){return answer({error:String(error?.message||error).slice(0,240)},400);}},
  async scheduled(event,e,ctx){e=mediaEnv(e);if(!e.DB)return;ctx.waitUntil((async()=>{
-  if(event.cron==='0 0 * * *'){await research(e);if(e.ALLOW_DAILY_DRAFTS==='true'&&!(await isPaused(e)))await makeDraft(e,'facebook','TEXT','');}
+  if(event.cron==='0 0 * * *'){await analytics(e);await strategy(e);await research(e);if(e.ALLOW_DAILY_DRAFTS==='true'&&!(await isPaused(e)))await makeDraft(e,'facebook','TEXT','');}
   else await publish(e);
  })().catch(async er=>{await audit(e,'CRON_ERROR','',String(er));}));}
 };

@@ -37,3 +37,6 @@ Git history of old code remains but new HEAD tree has no old code. Default pause
 - Publication gate rejects generated image as MP4 and blocks Facebook Reels until official endpoint is implemented. YouTube upload only `privacyStatus=private` and after `mine=true` ID check.
 - Cloudflare API model smoke: Gemma 4 26B A4B IT delivered valid original Indonesian JSON; Llama 3.1 8B is fallback; earlier GLM 4.7 Flash low-token response can be dominated by reasoning. Missing model output causes HOLD/error rather than invalid data.
 - Neither GitHub Actions nor Worker secretly borrows API keys from Finchat/Spenva/Nusa Penida Experiences. OAuth + provider acceptance remain necessary for live posting.
+
+## Deployed draft-only automation
+Cloudflare Cron 00:00 UTC (08:00 WITA) executes metrics refresh, strategy assessment, research and one queued AI draft from a weekly Facebook/Panex/Heros rotation while `ALLOW_DAILY_DRAFTS=true`, D1 paused=false. A 24-draft/month cap applies. `ALLOW_PUBLICATION=false` is independent and is intentionally kept off. Second 15-minute Cron runs publisher only when explicit provider configuration and publication switch are enabled. Results await human review.

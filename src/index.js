@@ -140,7 +140,7 @@ async function facebookIdentity(e){
  });
  if(!r.ok)throw Error('Meta Page identity HTTP '+r.status);
  const page=await r.json();
- if(String(page.id)!==String(e.FB_PAGE_ID) || !/^ceritexa(?:\\s|$)/i.test(String(page.name||''))){
+ if(String(page.id)!==String(e.FB_PAGE_ID) || !/^ceritexa(?:[ ]|$)/i.test(String(page.name||''))){
   throw Error('Meta Page salah: hanya Ceritexa Studio diizinkan; posting dibatalkan');
  }
  return {id:String(page.id),name:String(page.name)};

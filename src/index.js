@@ -8,7 +8,7 @@ const run=async(e,q,...p)=>db(e,q,...p).run();
 async function audit(e,action,id='',detail=''){await run(e,'INSERT INTO audit(id,action,entity_id,detail,at) VALUES(?,?,?,?,?)',uuid(),action,id,String(detail).slice(0,300),utc());}
 async function isPaused(e){return (await row(e,"SELECT value FROM settings WHERE key='paused'"))?.value!=='false';}
 const seeds=['Perjuangan ibu membesarkan keluarga','Persahabatan yang diuji oleh rahasia','Pilihan berat seorang pahlawan orisinal','Warung keluarga menghadapi penutupan','Misteri fiksi tetangga baru'];
-const mtext='@cf/zai-org/glm-4.7-flash';
+const mtext='@cf/meta/llama-3.1-8b-instruct-fp8'; // verified free-compatible non-reasoning JSON response
 const mimage='@cf/black-forest-labs/flux-1-schnell';
 function aiPrompt(channel,format,topic){return [
  'You are a professional original fiction writer for '+CHANNELS[channel].label+'.',

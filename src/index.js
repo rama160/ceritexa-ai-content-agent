@@ -214,6 +214,18 @@ async function upload(e,id,req){
  if(!mp4)await run(e,"INSERT INTO draft_reviews(post_id,preview_media_key,updated_at) VALUES(?,?,?) ON CONFLICT(post_id) DO UPDATE SET preview_media_key=excluded.preview_media_key,updated_at=excluded.updated_at",id,key,utc());
  await audit(e,'MEDIA_UPLOADED',id,mime);return {id,media_key:key};
 }
+/** Renderer status from private GitHub Action; never changes approval or publication. */
+async function renderEvent(e,id,data){
+ const state=String(data.status||'').toUpperCase();
+ if(!['STARTED','FAILED','COMPLETED'].includes(state))throw Error('Render status tidak valid');
+ const p=await row(e,'SELECT id,channel,format,state,media_type FROM posts WHERE id=?',id);
+ if(!p||p.format!=='VIDEO'||!['panex','heros'].includes(p.channel))throw Error('Draft video YouTube tidak ditemukan');
+ if(state==='COMPLETED'&&!(p.state==='PENDING_REVIEW'&&p.media_type==='video/mp4'))throw Error('Render selesai hanya setelah MP4 tersimpan dan draft PENDING_REVIEW');
+ if(state==='STARTED'&&p.state!=='BLOCKED')throw Error('Render hanya boleh memproses draft BLOCKED');
+ const detail=String(data.detail||'').replace(/[\r\n\t]+/g,' ').slice(0,230);
+ await audit(e,'RENDER_'+state,id,detail);
+ return {id,status:state,accepted:true,mediaReady:p.media_type==='video/mp4'};
+}
 async function media(e,id,preview=false){
  const p=await row(e,'SELECT p.media_key,p.media_type,r.preview_media_key FROM posts p LEFT JOIN draft_reviews r ON r.post_id=p.id WHERE p.id=?',id);
  if(!p||!e.MEDIA)return new Response('Not found',{status:404});
@@ -575,7 +587,7 @@ async function handle(request,e){
  if(method==='GET'&&p==='/api/readiness')return answer(readiness(e,await isPaused(e)));
  if(method==='GET'&&p==='/api/connections/verify')return answer(await verifyConnections(e));
  if(method==='GET'&&p==='/api/status')return answer({paused:await isPaused(e),publicationEnabled:e.ALLOW_PUBLICATION==='true',mediaReady:!!e.MEDIA,mediaBackend:e.MEDIAKV?'KV':e.MEDIA?'R2':null,aiReady:!!e.AI,facebookReady:!!(e.FB_PAGE_ID&&e.FB_PAGE_ACCESS_TOKEN),panexReady:!!(e.YT_REFRESH_TOKEN_PANEX&&e.YT_CHANNEL_ID_PANEX),herosReady:!!(e.YT_REFRESH_TOKEN_HEROS&&e.YT_CHANNEL_ID_HEROS),channels:CHANNELS});
- if(method==='GET'&&p==='/api/posts')return answer({posts:await list(e,'SELECT p.*,r.parent_id,r.revision_depth,r.rejection_reason,r.rejection_note,r.regen_state,r.preview_media_key,r.last_error FROM posts p LEFT JOIN draft_reviews r ON r.post_id=p.id ORDER BY p.created_at DESC LIMIT 100')});
+ if(method==='GET'&&p==='/api/posts')return answer({posts:await list(e,"SELECT p.*,r.parent_id,r.revision_depth,r.rejection_reason,r.rejection_note,r.regen_state,r.preview_media_key,r.last_error,(SELECT a.action||': '||a.detail FROM audit a WHERE a.entity_id=p.id AND a.action IN ('RENDER_STARTED','RENDER_FAILED','RENDER_COMPLETED') ORDER BY a.at DESC LIMIT 1) AS render_event FROM posts p LEFT JOIN draft_reviews r ON r.post_id=p.id ORDER BY p.created_at DESC LIMIT 100")});
  if(method==='GET'&&p==='/api/trends')return answer({trends:await list(e,'SELECT * FROM trends ORDER BY created_at DESC LIMIT 30')});
  if(method==='GET'&&p==='/api/analytics')return answer({analytics:await list(e,'SELECT * FROM metrics ORDER BY observed_at DESC LIMIT 100')});
  if(method==='GET'&&p==='/api/strategy')return answer(await strategy(e));
@@ -593,12 +605,13 @@ async function handle(request,e){
   if(p==='/api/publish')return answer(await publish(e));
   if(p==='/api/metrics')return answer(await analytics(e));
   if(p==='/api/strategy')return answer(await strategy(e));
-  const match=p.match(/^\/api\/posts\/([0-9a-f-]{36})\/(approve|schedule|media|edit|reject|regenerate|preview)$/);
+  const match=p.match(/^\/api\/posts\/([0-9a-f-]{36})\/(approve|schedule|media|edit|reject|regenerate|preview|render-event)$/);
   if(match){
    if(match[2]==='approve')return answer(await approve(e,match[1]));
    if(match[2]==='reject')return answer(await rejectDraft(e,match[1],data.reason,data.note));
    if(match[2]==='regenerate')return answer(await retryRegeneration(e,match[1]));
    if(match[2]==='preview')return answer(await regenerateCover(e,match[1]));
+   if(match[2]==='render-event')return answer(await renderEvent(e,match[1],data));
    if(match[2]==='edit')return answer(await edit(e,match[1],data));
    if(match[2]==='schedule')return answer(await schedule(e,match[1],data.date));
    if(match[2]==='media')return answer(await upload(e,match[1],request));

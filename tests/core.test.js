@@ -606,6 +606,7 @@ test('offline network failures must not be misreported as logout; sign-out requi
  assert.ok(!js.includes("finally{posts=[];metrics=[];events=[];trends=[]"));
  assert.ok(!js.includes('localStorage'));
  assert.match(page,/#cxOffline\[hidden\]/);
+ assert.match(js,/addEventListener\('online',\(\)=>\{if\(\$\('cxOffline'\)/);
  assert.match(page,/data-page="home"/);
  assert.match(page,/data-page="analytics"/);
 });

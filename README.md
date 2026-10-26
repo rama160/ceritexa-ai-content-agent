@@ -1,4 +1,4 @@
-# Ceritexa AI Content Agent — v1.4.2
+# Ceritexa AI Content Agent — v1.5.0
 
 An isolated Cloudflare Worker and GitHub Actions project for:
 - **Ceritexa Studio** (Facebook Page, text/photo/comic)
@@ -184,3 +184,25 @@ Fixes: real failure exit codes, Python/secret preflight, narration/MP4 verificat
 Owner check: In GitHub Actions open the latest Ceritexa Video Renderer run. Open step Render and VERIFY MP4 upload to Ceritexa D1 and read its summary. A correct render MUST log MP4 uploaded and state PENDING_REVIEW confirmed. If the step is red, copy the failure text only, never secret. If the token is missing, set CERITEXA_ADMIN_TOKEN under this repository Settings > Secrets and variables > Actions to the same value as the isolated Ceritexa Worker ADMIN_TOKEN.
 
 The renderer also runs on future renderer/workflow changes and retains the six-hour schedule. It does NOT post to Facebook or YouTube and ALLOW_PUBLICATION is false. Current MP4 success after this fix is still pending real GitHub run evidence; do not treat an illustrated preview as a complete video.
+
+## v1.5.0 — Replacing static one-photo Shorts with four-beat cinematic motion editing
+
+### What actually changed
+- Four distinct story-beat AI illustrations per VIDEO: the first is the existing owner-review cover, the next three use the same isolated Workers AI image generator. Scenes are stored in one additive D1 video_storyboard table and Ceritexa MEDIAKV, with a daily limit of 12 new images.
+- GitHub's SAME tools/render_video.py renders four shots using frame-by-frame camera zoom/pan, scene fade transitions, humanlike online neural Indonesian voice and voice-timed SRT captions. Panex default voice is id-ID-GadisNeural, Heros default is id-ID-ArdiNeural. No espeak-ng fallback.
+- FFmpeg graph was exercised with four locally generated example JPEGs + test audio, successfully producing an actual 540x960 H264/AAC MP4. App code and 28 mock/source tests passed in JS tool harness. This is NOT independent confirmation that GitHub can obtain neural audio or that an actual user video is already ready.
+- Honest quality claim: CINEMATIC_MOTION_COMIC means moving-camera/editing over unique illustrations. It does NOT create real body/face motions or natural lip sync. Third-party image-to-video providers on Cloudflare are fee-based and have NOT been enabled; user need not purchase anything for this version.
+
+### How to upgrade an old video in the installed PWA
+1. Open Ceritexa, reload if needed, and locate an UNAPPROVED VIDEO whose actual media type is video/mp4 and state is PENDING_REVIEW. A card will show **MP4 lama** and a button **Render ulang jadi video sinematik**.
+2. Tap the button and confirm. The owner-only endpoint preserves the previous MP4 object in KV but restores the original JPEG cover as the draft media, changes state back to BLOCKED and prepares it for re-render. Approved/scheduled/published videos are not eligible.
+3. The **Siapkan storyboard 4 adegan (0/4)** button can create three additional unique AI illustrations, capped to protect Workers AI Free allocation. The GitHub renderer ALSO builds any missing storyboard scenes automatically.
+4. Go to https://github.com/rama160/ceritexa-ai-content-agent/actions/workflows/render-video.yml → Run workflow → main. GitHub repo Secret CERITEXA_ADMIN_TOKEN must match the dedicated Cloudflare Ceritexa Worker ADMIN_TOKEN; do not disclose it.
+5. Inspect **Render FOUR cinematic scenes, neural narration and verify MP4**. Success means the Worker reports PENDING_REVIEW and media_type=video/mp4, then the PWA displays **▶ Putar MP4**. Watch the actual clip, listen to narration and judge visuals/caption timing. If the voice provider is unavailable, the job FAILS with clear error and old video object remains preserved.
+6. After review, continue owner approval/rejection. Automatic public social posting remains OFF with ALLOW_PUBLICATION=false.
+
+### Engineering and privacy
+- The four-scene pipeline reuses existing Worker, D1, KV, GitHub Actions and social channels. It does not modify Nusa Penida Experiences, Spenva or Finchat, create a paid service, or introduce duplicate renderers.
+- Word-to-speech naturalness is improved by using an online neural voice via the independent edge-tts library; **Edge TTS endpoint is unofficial** and may change, be inaccessible, or have licensing restrictions for monetized publishing. Validate its commercial rights before public content use; do not represent this as guaranteed Microsoft Azure production service.
+- No automatic degradation to robotic narration, and no video marked complete without D1/MP4 validation.
+- At inspection after deployment, old Panex and Heros MP4 drafts were both still PENDING_REVIEW with video/mp4, and **zero storyboard scenes** existed. That means this version's cinematic output had not yet been generated. The owner must explicitly initiate an upgrade for either old MP4.

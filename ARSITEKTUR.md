@@ -1,4 +1,4 @@
-# ARSITEKTUR 1.6.1 — Ceritexa Studio
+# ARSITEKTUR 1.7.0 — Ceritexa Studio
 Single isolated Cloudflare Worker `ceritexa-content-agent`, D1 `ceritexa-content-db`. Optional private R2 `ceritexa-content-media` after owner enables storage.
 
 ```mermaid
@@ -94,3 +94,10 @@ Cloudflare Cron 00:00 UTC (08:00 WITA) executes metrics refresh, strategy assess
 - Existing PWA's storyboard button loops at most nine bounded Worker POSTs (three images each), shows created/planned and quota state, and reloads cards; no new frontend module or separate service.
 - GitHub renderer's existing --self-test-media runs actual FFmpeg synthesis with 3 and 7 synthetic scenes before real production, checking video H264, audio and frame orientation without consuming Workers AI quotas.
 - Production E2E verification: isolated UJI INTERNAL Panex draft (96 Indonesian words) generated eight frames, native neural id-ID-GadisNeural narration and video/mp4 ~4.40MB via GitHub Actions; review and publishing gate unchanged. Second rerender is used to verify non-destructive new key generation.
+
+## v1.7.0 — Navigation and secure persistent login (only existing Worker)
+- Static mobile/desktop-approved HTML is rendered by existing src/index.js root handler with navigation-only Home/Draft/Analitik/Tren views, using a single client-side controller in the SAME file. This is not a separate deployment or new Worker.
+- Dashboard initially calls unauthenticated /api/auth/me: authenticated owner sessions are restored from cookie, so page reload doesn't prompt for Admin Token. POST /api/auth/login checks existing ADMIN_TOKEN, throttles failed IP-keyed attempts and creates 256-bit random session. Only SHA-256(active ADMIN_TOKEN + ':' + opaque cookie) is persisted in D1 admin_sessions. Cookie is __Host-ceritexa_session, Secure, HttpOnly, SameSite=Strict, Path=/, no JavaScript token storage. POST /api/auth/logout revokes hash server-side and clears cookie; expiry and rotation also invalidate.
+- Existing /api/posts, /api/status, /api/trends, /api/analytics and private scene/media endpoints accept either SAME Cloudflare ADMIN_TOKEN via Authorization Bearer (renderer/engineering tools) or live cookie session (PWA). Cookie mutation requests require X-Ceritexa-Request: dashboard with same-origin Origin check when present; external credentials cannot be read by client JS.
+- /api/editor-config serves only allowed rejection labels. Existing POST /api/generate, posts/:id/{approve,reject,edit,media,storyboard,upgrade-video,schedule}, /api/research are invoked from approved UI. Owner rejected content is hidden only in UI and retained in D1.
+- D1 additive migration 0005_owner_sessions.sql creates admin_sessions and admin_login_limits; no modifications to existing drafts, metrics or assets. PWA service worker caches only public shell/icons and never /api/ routes, avoiding offline credential caching. APP publishing switch remains OFF.

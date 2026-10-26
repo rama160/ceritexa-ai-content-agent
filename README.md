@@ -1,4 +1,4 @@
-# Ceritexa AI Content Agent — v1.2.2
+# Ceritexa AI Content Agent — v1.3.0
 
 An isolated Cloudflare Worker and GitHub Actions project for:
 - **Ceritexa Studio** (Facebook Page, text/photo/comic)
@@ -133,4 +133,21 @@ Ceritexa's public branding site now lives in this repository's **single canonica
 - The channel owner's dashboard showed facebook, panex and heros identity tests with verified=true. This verifies provider identity connectivity, not posting permissions through a real provider write request.
 - The original selector allowed an unrelated trending Bundesliga leaderboard topic to influence Heros and Facebook fiction. Version 1.2.2 fixes this by matching each trend to channel editorial keywords, otherwise using owner-approved original editorial topic seeds. Previously created off-topic drafts remain in review and should be edited or left unapproved.
 - Manual smoke test: Dashboard → channel Facebook Ceritexa → format TEXT → enter your own original story topic → Buat draft once. Expected: a new `PENDING_REVIEW` entry with title, caption, 150–220 word narrative, without posting or scheduling. Then test PHOTO, COMIC and video renderer separately.
-- Deployment of v1.2.2 verified through Cloudflare management API: latest Worker revision is 100% live, all six previously configured secrets (admin, Facebook, and Google credentials) remain in place, `ALLOW_PUBLICATION=false`, and both scheduled triggers remain. External platform publishing E2E is still pending.
+- Deployment of v1.3.0 verified through Cloudflare management API: latest Worker revision is 100% live, all six previously configured secrets (admin, Facebook, and Google credentials) remain in place, `ALLOW_PUBLICATION=false`, and both scheduled triggers remain. External platform publishing E2E is still pending.
+
+## Visual approval and AI rejection improvements — v1.3.0
+
+Open the Ceritexa dashboard at https://ceritexa-content-agent.finchat-ai-gateway.workers.dev/ and sign in with your existing private ADMIN_TOKEN. No new secret or OAuth authorization is required.
+
+1. Under Konten dan persetujuan, every card now has a poster area. A private AI-generated thumbnail is loaded with authenticated GET /api/preview/:id, or the supplied Ceritexa logo appears as a fallback. All new TEXT drafts receive a review-only AI image (the Facebook TEXT publisher still sends text).
+2. Older draft missing a cover? Tap Buat gambar review AI. Want a more suitable image? Tap Ganti ilustrasi AI. Both use the same protected POST /api/posts/:id/preview and isolated Ceritexa MEDIAKV, maximum eight manual preview updates per day.
+3. Read the full story, check rights/quality, and inspect media. If the draft is unsatisfactory, open Tolak draft & buat versi lebih baik, select a reason and optionally add up to 500 characters of guidance; tap Tolak & buat ulang.
+4. The original draft remains REJECTED in the database with its rejection reason; a linked child draft of the same channel/format/topic appears in review. The AI uses your feedback and rejects near-identical titles, captions and overly similar plots. Stronger quality is a goal, not guaranteed — you remain the reviewer.
+5. The revision chain has a hard maximum of three auto-regenerations. If the AI fails or hits its quota, the rejected original displays Coba buat ulang, which retries only after explicit owner action. Existing drafts are not destroyed and the agent never enters an infinite loop.
+6. For VIDEO, the generated illustration remains a thumbnail while GitHub Actions generates the MP4; the preview key remains stored even after the MP4 becomes the primary media.
+
+The sole additive migration is migrations/0002_review_feedback.sql (draft_reviews table), applied via Cloudflare API to the separate Ceritexa D1 database. It is designed to be re-applied safely by Wrangler migration tooling if needed. No secrets are added to source or published in the UI.
+
+**Verification:** D1 migration created review metadata for six preexisting drafts; the live Cloudflare Worker script contains the logo, reject/regenerate, preview and media revision handlers and is assigned 100% traffic. Core/dashboard parsing and 15 pure tests passed in a JS sandbox; a simulated full reject HTTP flow confirmed original=REJECTED, child=PENDING_REVIEW, ancestry depth=1 and no duplicate on second reject. The GitHub-hosted Node CI result and real owner-session browser flow still need independent confirmation.
+
+**Security:** ALLOW_PUBLICATION remains false, and the existing Facebook, Panex and Heros tokens stay unchanged. No public content was posted, no legacy draft was deleted, and unrelated Workers were not touched.

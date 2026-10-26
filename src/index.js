@@ -229,11 +229,15 @@ async function storyboard(e,id,generate=false){
  let saved=await list(e,'SELECT scene_index,media_key,beat,created_at FROM video_storyboard WHERE post_id=? ORDER BY scene_index',id);
  const wasReady=saved.length===expected&&saved.every((part,i)=>part.scene_index===i&&part.beat===beats[i].beat);
  let stale=saved.some(part=>!beats[part.scene_index]||part.beat!==beats[part.scene_index].beat);
+ if(p.media_type==='image/jpeg'&&saved.some(part=>part.scene_index===0&&part.media_key!==p.media_key))stale=true;
  if(generate&&stale){
-  // Owner requested a new storyboard; retain old image objects in private KV for recovery,
-  // but remove stale DB links so renderer never mixes old 4-beat and new narrative plans.
+  // Owner requested re-planning; retain every original media object in private KV.
+  // Persist the old scene indices and KV keys in the EXISTING audit log before unlinking
+  // metadata, so a previous storyboard remains traceable without duplicate tables.
+  for(const part of saved)await audit(e,'STORYBOARD_SCENE_ARCHIVED',id,
+   'index='+part.scene_index+'; key='+String(part.media_key).slice(0,185)+'; beat='+String(part.beat).slice(0,55));
   await run(e,'DELETE FROM video_storyboard WHERE post_id=?',id);
-  await audit(e,'STORYBOARD_REPLANNED',id,'Old plan invalid for current story; '+saved.length+' historical image assets retained');
+  await audit(e,'STORYBOARD_REPLANNED',id,'Previous plan archived; '+saved.length+' KV image objects preserved');
   saved=[];stale=false;
  }
  if(generate){

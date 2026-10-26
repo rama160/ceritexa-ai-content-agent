@@ -1,4 +1,4 @@
-# ARSITEKTUR 1.7.0 — Ceritexa Studio
+# ARSITEKTUR 1.7.1 — Ceritexa Studio
 Single isolated Cloudflare Worker `ceritexa-content-agent`, D1 `ceritexa-content-db`. Optional private R2 `ceritexa-content-media` after owner enables storage.
 
 ```mermaid
@@ -101,3 +101,8 @@ Cloudflare Cron 00:00 UTC (08:00 WITA) executes metrics refresh, strategy assess
 - Existing /api/posts, /api/status, /api/trends, /api/analytics and private scene/media endpoints accept either SAME Cloudflare ADMIN_TOKEN via Authorization Bearer (renderer/engineering tools) or live cookie session (PWA). Cookie mutation requests require X-Ceritexa-Request: dashboard with same-origin Origin check when present; external credentials cannot be read by client JS.
 - /api/editor-config serves only allowed rejection labels. Existing POST /api/generate, posts/:id/{approve,reject,edit,media,storyboard,upgrade-video,schedule}, /api/research are invoked from approved UI. Owner rejected content is hidden only in UI and retained in D1.
 - D1 additive migration 0005_owner_sessions.sql creates admin_sessions and admin_login_limits; no modifications to existing drafts, metrics or assets. PWA service worker caches only public shell/icons and never /api/ routes, avoiding offline credential caching. APP publishing switch remains OFF.
+
+## v1.7.1 — Disconnected state and session revocation
+- PWA startup calls existing GET /api/auth/me with same-origin cookies and no cache. Explicit authenticated:false requests login; a failed network fetch opens a dedicated offline/reconnect view without clearing credentials or inferring revocation. The online browser event retries the server session check.
+- Logout awaits protected POST /api/auth/logout with authenticated:false before clearing UI state. Network failure leaves the session active and shows an error. Server deletes matching hashed session row and expires __Host-ceritexa_session.
+- No additional persistent store, Worker, table, OAuth provider or paid service. Renewable one-year security sessions continue in the dedicated Ceritexa Worker.

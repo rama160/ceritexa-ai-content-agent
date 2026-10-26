@@ -33,11 +33,12 @@ test('readiness checks never expose secret values or mark provider tests verifie
 });
 
 test('dashboard inline JavaScript must compile',()=>{
- const workerSource=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
- const inline=workerSource.match(/<script>\s*([\s\S]*?)<\/script>/)?.[1];
- const hydrated=inline?.replace(/\$\{JSON\.stringify\(REJECTION_REASONS\)\}/g,JSON.stringify(REJECTION_REASONS));
+ const core=readFileSync(new URL('../src/core.js',import.meta.url),'utf8').replace(/^export /gm,'');
+ const idx=readFileSync(new URL('../src/index.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/,'').replace(/^export /gm,'').replace('default{','const __worker={');
+ const html=new Function(core+'\n'+idx+'\nreturn page;')();
+ const inline=html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
  assert.ok(inline,'Dashboard inline script found');
- assert.doesNotThrow(()=>new vm.Script(hydrated));
+ assert.doesNotThrow(()=>new vm.Script(inline));
 });
 
 test('channel editorial filter rejects unrelated viral football trends',()=>{
@@ -506,7 +507,7 @@ test('approved Ceritexa v3 is real four-page, hiding rejected drafts and no inte
  assert.ok(inline);assert.doesNotThrow(()=>new vm.Script(inline));
  for(const nav of ['home','draft','analytics','trends'])assert.match(page,new RegExp('data-page="'+nav+'"'));
  assert.match(page,/Perlu review/);assert.match(page,/Disetujui/);
- assert.match(page,/x\.state==='PENDING_REVIEW'\|\|x\.state==='BLOCKED'/);
+ assert.match(page,/p\.state==='PENDING_REVIEW'\|\|p\.state==='BLOCKED'/);
  assert.match(page,/case 'submit-reject':/);
  assert.match(page,/p\.state==='APPROVED'/);
  assert.ok(!page.includes('Kesiapan Integrasi'));
@@ -527,4 +528,60 @@ test('additive hashed session storage and CSRF defenses preserve GitHub bearer c
  assert.match(src,/DELETE FROM admin_sessions WHERE session_hash=/);
  assert.match(src,/\/api\/editor-config/);
  assert.ok(!src.includes("localStorage.setItem"));
+});
+
+test('owner login remains active through refresh, cannot CSRF mutate, and logout revokes session',async()=>{
+ const core=readFileSync(new URL('../src/core.js',import.meta.url),'utf8').replace(/^export /gm,'');
+ const idx=readFileSync(new URL('../src/index.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/,'').replace(/^export /gm,'').replace('default{','const __worker={');
+ const app=new Function(core+'\n'+idx+'\nreturn __worker;')();
+ const admin='CeritexaAdminTokenForTest123456789';
+ const sessions=new Map(),limits=new Map(),logs=[];
+ const database={prepare(sql){return{bind(...v){return{
+  first:async()=>{
+   if(sql.includes('FROM admin_sessions'))return sessions.get(v[0])||null;
+   if(sql.includes('FROM admin_login_limits'))return limits.get(v[0])||null;
+   if(sql.includes("FROM settings WHERE key='paused'"))return {value:'false'};
+   return null;
+  },
+  all:async()=>({results:[]}),
+  run:async()=>{
+   if(sql.startsWith('INSERT INTO admin_sessions'))sessions.set(v[0],{session_hash:v[0],created_at:v[1],expires_at:v[2],last_seen:v[3]});
+   if(sql.startsWith('DELETE FROM admin_sessions'))sessions.delete(v[0]);
+   if(sql.startsWith('INSERT INTO admin_login_limits'))limits.set(v[0],{failed_attempts:v[1],reset_at:v[2],locked_until:v[3]});
+   if(sql.startsWith('DELETE FROM admin_login_limits'))limits.delete(v[0]);
+   if(sql.startsWith('INSERT INTO audit'))logs.push(v);
+   return {meta:{changes:1}};
+  }
+ }}}}};
+ const env={ADMIN_TOKEN:admin,DB:database,ALLOW_PUBLICATION:'false'};
+ const url=path=>'https://ceritexa.test'+path;
+ const before=await app.fetch(new Request(url('/api/auth/me')),env);
+ assert.equal(before.status,200);assert.equal((await before.json()).authenticated,false);
+ const bad=await app.fetch(new Request(url('/api/auth/login'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:'wrong'})}),env);
+ assert.equal(bad.status,401);
+ const login=await app.fetch(new Request(url('/api/auth/login'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:admin})}),env);
+ assert.equal(login.status,200);
+ assert.equal((await login.json()).authenticated,true);
+ const setCookie=login.headers.get('Set-Cookie')||'';
+ assert.match(setCookie,/__Host-ceritexa_session=[0-9a-f]{64}/);
+ assert.match(setCookie,/HttpOnly/);assert.match(setCookie,/Secure/);assert.match(setCookie,/SameSite=Strict/);
+ assert.ok(!setCookie.includes(admin));
+ const cookie=setCookie.split(';')[0];
+ assert.equal(sessions.size,1);
+ for(let i=0;i<2;i++){
+  const session=await app.fetch(new Request(url('/api/auth/me'),{headers:{Cookie:cookie}}),env);
+  assert.equal(session.status,200);assert.equal((await session.json()).authenticated,true);
+ }
+ const stale=await app.fetch(new Request(url('/api/posts'),{headers:{Cookie:cookie}}),env);
+ assert.equal(stale.status,200);assert.deepEqual((await stale.json()).posts,[]);
+ const denied=await app.fetch(new Request(url('/api/pause'),{method:'POST',headers:{Cookie:cookie,'Content-Type':'application/json'},body:JSON.stringify({paused:true})}),env);
+ assert.equal(denied.status,403);
+ const gitBearer=await app.fetch(new Request(url('/api/status'),{headers:{Authorization:'Bearer '+admin}}),env);
+ assert.equal(gitBearer.status,200);
+ const signout=await app.fetch(new Request(url('/api/auth/logout'),{method:'POST',headers:{Cookie:cookie,'X-Ceritexa-Request':'dashboard'}}),env);
+ assert.equal(signout.status,200);assert.equal((await signout.json()).authenticated,false);
+ assert.match(signout.headers.get('Set-Cookie'),/Max-Age=0/);
+ assert.equal(sessions.size,0);
+ const after=await app.fetch(new Request(url('/api/auth/me'),{headers:{Cookie:cookie}}),env);
+ assert.equal((await after.json()).authenticated,false);
 });

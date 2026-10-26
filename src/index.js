@@ -30,6 +30,15 @@ export async function research(e){
  await audit(e,'RESEARCH','',source+' '+items.length);
  return {source,count:items.length};
 }
+async function saveAIArtwork(e,key,prompt){
+ if(!e.MEDIA||!e.AI)throw Error('Media / Workers AI tidak tersedia');
+ const image=await e.AI.run(mimage,{prompt:String(prompt).slice(0,1200),steps:4});
+ if(!image?.image)throw Error('Image response invalid');
+ const bytes=Uint8Array.from(atob(image.image),c=>c.charCodeAt(0));
+ if(bytes.byteLength<1000||bytes.byteLength>8_000_000)throw Error('Ukuran gambar AI tidak valid');
+ await e.MEDIA.put(key,bytes,{httpMetadata:{contentType:'image/jpeg'}});
+ return {key,bytes:bytes.byteLength};
+}
 export async function makeDraft(e,channel,format,topic,options={}){
  validate(channel,format);
  if(!e.AI)throw Error('Cloudflare AI binding tidak tersedia');
@@ -83,12 +92,8 @@ export async function makeDraft(e,channel,format,topic,options={}){
  if(!e.MEDIA){if(format!=='TEXT')issue='MEDIA_STORAGE_NOT_ENABLED';}
  else{
   try{
-   const im=await e.AI.run(mimage,{prompt:cr.imagePrompt,steps:4});
-   if(!im?.image)throw Error('Image response invalid');
-   const bytes=Uint8Array.from(atob(im.image),c=>c.charCodeAt(0));
-   if(bytes.byteLength>8_000_000)throw Error('Image too large');
    previewKey='images/'+id+'.jpg';
-   await e.MEDIA.put(previewKey,bytes,{httpMetadata:{contentType:'image/jpeg'}});
+   await saveAIArtwork(e,previewKey,cr.imagePrompt);
    mediaKey=previewKey;mediaType='image/jpeg';
   }catch(err){
    if(format!=='TEXT')issue='IMAGE_GENERATION_FAILED';
@@ -103,6 +108,24 @@ export async function makeDraft(e,channel,format,topic,options={}){
   id,parent?.id||null,parent?Number(options.depth||1):0,previewKey,created);
  await audit(e,parent?'DRAFT_REGENERATED':'DRAFT_CREATED',id,channel+'/'+format+(parent?'; parent='+parent.id:''));
  return {id,channel,format,status:state,issue,previewReady:!!previewKey,revisionDepth:parent?Number(options.depth||1):0,parentId:parent?.id||null};
+}
+async function regenerateCover(e,id){
+ if(!e.MEDIA||!e.AI)throw Error('Media atau Workers AI tidak tersedia');
+ const p=await row(e,'SELECT * FROM posts WHERE id=?',id);
+ if(!p||!['PENDING_REVIEW','BLOCKED'].includes(p.state))throw Error('Gambar hanya dapat diperbaiki saat review');
+ if(p.format==='VIDEO'&&p.media_type==='video/mp4')throw Error('Video sudah dirender; tolak draft untuk revisi visual menyeluruh');
+ const count=await row(e,"SELECT COUNT(*) n FROM audit WHERE action='PREVIEW_GENERATED' AND at>=?",utc().slice(0,10));
+ if(Number(count?.n||0)>=8)throw Error('Maksimal delapan perbaikan gambar per hari');
+ const prompt=[p.image_prompt,'Create a specific fresh review illustration fitting title:',p.title,'Story tone:',p.story.slice(0,550),
+  'No text, no logo, no trademark, no real public people, vertical 9:16, cinematic lighting.'].join(' ').slice(0,1100);
+ const key='review/'+id+'/'+uuid()+'.jpg';
+ await saveAIArtwork(e,key,prompt);
+ await run(e,"INSERT INTO draft_reviews(post_id,preview_media_key,updated_at) VALUES(?,?,?) ON CONFLICT(post_id) DO UPDATE SET preview_media_key=excluded.preview_media_key,updated_at=excluded.updated_at",id,key,utc());
+ if(p.format!=='VIDEO'||(p.media_type||'').startsWith('image/')){
+  await run(e,'UPDATE posts SET media_key=?,media_type=?,updated_at=? WHERE id=?',key,'image/jpeg',utc(),id);
+ }
+ await audit(e,'PREVIEW_GENERATED',id,'Owner-generated review artwork');
+ return {id,previewReady:true,updated:true};
 }
 async function approve(e,id){
  const p=await row(e,'SELECT * FROM posts WHERE id=?',id);
@@ -197,7 +220,7 @@ async function media(e,id,preview=false){
  const key=preview?(p.preview_media_key||(p.media_type?.startsWith('image/')?p.media_key:null)):p.media_key;
  if(!key)return new Response('Not found',{status:404});
  const file=await e.MEDIA.get(key);
- const type=preview?'image/jpeg':p.media_type||'application/octet-stream';
+ const type=preview?(key===p.media_key&&p.media_type==='image/png'?'image/png':'image/jpeg'):(p.media_type||'application/octet-stream');
  return file?new Response(file.body,{headers:{'Content-Type':type,'Cache-Control':'private, max-age=0','X-Content-Type-Options':'nosniff'}}):new Response('Not found',{status:404});
 }
 async function youtubeToken(e,channel){
@@ -343,7 +366,7 @@ el('readiness').innerHTML=ready.checks.map(x=>'<div class="card"><strong>'+(x.re
 function renderDraft(x){
  const id=safe(x.id),reviewable=['PENDING_REVIEW','BLOCKED'].includes(x.state);
  const reasonSelect='<select data-reason="'+id+'">'+rejectionReasons.map(r=>'<option value="'+safe(r)+'">'+safe(r)+'</option>').join('')+'</select>';
- const actions=(x.media_key?'<button data-view="'+id+'">Lihat media asli</button>':'')+
+ const actions=(reviewable?'<button data-gencover="'+id+'">'+(x.preview_media_key?'Ganti ilustrasi AI':'Buat gambar review AI')+'</button>':'')+(x.media_key?'<button data-view="'+id+'">Lihat media asli</button>':'')+
   (reviewable?'<input type="file" data-file="'+id+'" accept="'+(x.format==='VIDEO'?'video/mp4':'image/jpeg,image/png')+'"><button data-upload="'+id+'">Ganti / tambah media</button>':'')+
   (x.state==='PENDING_REVIEW'?'<button data-approve="'+id+'">Setujui setelah review</button>':'')+
   (x.state==='APPROVED'?'<input type="datetime-local" data-date="'+id+'"><button data-schedule="'+id+'">Jadwalkan (WITA perangkat)</button>':'');
@@ -376,6 +399,7 @@ el('posts').innerHTML=p.posts.length?p.posts.map(renderDraft).join(''):'<p class
 await loadPosters();
 el('trendlist').innerHTML=t.trends.map(x=>'<div class="card"><b>'+safe(x.topic)+'</b><br><small>'+safe(x.source)+'</small></div>').join('')||'<p class="muted">Belum ada riset.</p>';
 document.querySelectorAll('[data-save]').forEach(b=>b.onclick=()=>work(()=>action('posts/'+b.dataset.save+'/edit',{title:document.querySelector('[data-title="'+b.dataset.save+'"]').value,caption:document.querySelector('[data-caption="'+b.dataset.save+'"]').value,story:document.querySelector('[data-story="'+b.dataset.save+'"]').value})));
+document.querySelectorAll('[data-gencover]').forEach(b=>b.onclick=()=>work(()=>action('posts/'+b.dataset.gencover+'/preview',{})));
 document.querySelectorAll('[data-reject]').forEach(b=>b.onclick=()=>work(()=>action('posts/'+b.dataset.reject+'/reject',{reason:document.querySelector('[data-reason="'+b.dataset.reject+'"]').value,note:document.querySelector('[data-note="'+b.dataset.reject+'"]').value})));
 document.querySelectorAll('[data-retry]').forEach(b=>b.onclick=()=>work(()=>action('posts/'+b.dataset.retry+'/regenerate',{})));
 document.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>work(()=>action('posts/'+b.dataset.approve+'/approve')));
@@ -427,11 +451,12 @@ async function handle(request,e){
   if(p==='/api/publish')return answer(await publish(e));
   if(p==='/api/metrics')return answer(await analytics(e));
   if(p==='/api/strategy')return answer(await strategy(e));
-  const match=p.match(/^\/api\/posts\/([0-9a-f-]{36})\/(approve|schedule|media|edit|reject|regenerate)$/);
+  const match=p.match(/^\/api\/posts\/([0-9a-f-]{36})\/(approve|schedule|media|edit|reject|regenerate|preview)$/);
   if(match){
    if(match[2]==='approve')return answer(await approve(e,match[1]));
    if(match[2]==='reject')return answer(await rejectDraft(e,match[1],data.reason,data.note));
    if(match[2]==='regenerate')return answer(await retryRegeneration(e,match[1]));
+   if(match[2]==='preview')return answer(await regenerateCover(e,match[1]));
    if(match[2]==='edit')return answer(await edit(e,match[1],data));
    if(match[2]==='schedule')return answer(await schedule(e,match[1],data.date));
    if(match[2]==='media')return answer(await upload(e,match[1],request));

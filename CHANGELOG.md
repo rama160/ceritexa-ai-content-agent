@@ -1,4 +1,13 @@
 # CHANGELOG
+## 1.4.0 — 2026-10-26
+- Made Ceritexa's existing mobile dashboard installable as a standalone Progressive Web App (PWA) through Android Chrome/Samsung Internet without generating a second Android codebase or Play Store APK.
+- Added minimal branded web manifest (id, name, start_url, scope, standalone display, portrait, theme), scalable 192/512 SVG icon routes from original embedded Ceritexa logo and JPEG raster fallback; HTTP assets served on same isolated Worker origin.
+- Added small install card and button driven by beforeinstallprompt/appinstalled where supported, with manual Chrome Add to Home screen guidance when browser prompt unavailable.
+- Added service worker restricted to public app shell/manifest/icons only; network-first navigation and public offline shell fallback. Private /api, images/media, credentials, response bodies, authorization headers and non-GET actions are not cached.
+- Extended CSP narrowly for same-origin Worker/manifest, preserved ADMIN_TOKEN exclusively in volatile page memory. Kept existing review/rejection, Facebook and YouTube integrations and automatic posting disabled.
+- Added regression tests to existing tests/core.test.js for manifest fields, PWA service-worker cache safeguards, same-origin public endpoint MIME and auth boundaries. Browser install confirmation is pending device test.
+- No other Cloudflare Worker or repository touched. Existing Ceritexa secrets and D1 preserved.
+
 ## 1.3.0 — 2026-10-26
 - Embedded actual owner-supplied Ceritexa logo in existing dashboard header and review-card fallback; no new duplicate branding module.
 - Added an AI cover generation attempt to all new draft formats, including Facebook TEXT (review only); old records can create/replace a private review image using a shared image helper and owner button.

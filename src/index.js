@@ -353,9 +353,63 @@ async function strategy(e){
  return report;
 }
 const CERITEXA_LOGO='data:image/jpeg;base64,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';
-const page=`<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ceritexa Studio — AI Content Agent</title><style>
-:root{font-family:system-ui,-apple-system,sans-serif;color:#eaf0ff;background:#0c1020}*{box-sizing:border-box}body{margin:0}header{padding:20px;background:linear-gradient(120deg,#203361,#321750);border-bottom:1px solid #3a4264}h1{margin:4px 0;font-size:24px}.brandbar{display:flex;align-items:center;gap:14px}.brandbar img{border-radius:18px;border:1px solid rgba(220,240,255,.25);object-fit:cover;box-shadow:0 7px 22px rgba(24,91,255,.18)}small,.muted{color:#aeb8d3}main{max-width:1050px;margin:auto;padding:16px}.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}button,select,input,textarea{font:inherit;padding:10px;border-radius:9px;border:1px solid #4e5a83;color:#eaf0ff;background:#1c2544}textarea{width:100%;display:block;margin:8px 0}button{cursor:pointer}button:hover{background:#2b3b65}button.primary{background:#374ea1}input{max-width:100%}article{background:#171d35;border:1px solid #313b60;border-radius:13px;padding:14px;margin:12px 0}.draft-card{overflow:hidden;padding:0}.draft-body{padding:15px}.draft-poster{position:relative;display:grid;place-items:center;background:linear-gradient(125deg,#102852,#17132f);height:210px;overflow:hidden}.draft-poster img{width:100%;height:100%;object-fit:cover;display:block}.draft-poster img.fallback{width:120px;height:120px;object-fit:contain;border-radius:17px}.draft-poster small{position:absolute;bottom:8px;right:10px;background:rgba(9,13,32,.84);padding:3px 7px;border-radius:6px}.reject-toggle{color:#ffd2d2}.rejection-form{padding:12px;margin:10px 0;background:#2a1932;border:1px solid #87516b;border-radius:12px}.rejection-form select{max-width:100%}.danger{background:#7f2948;border-color:#b64b6d}.danger:hover{background:#9a345c}.rejected-card{border-color:#624457;opacity:.83}.revision-badge{color:#ffe0a1}.poster-hint{display:block;padding:4px 0;color:#bac8ed}section{margin:20px 0}.card{background:#121830;border:1px solid #313b60;padding:14px;border-radius:12px;margin:10px 0}h3{margin:5px 0}.tag{color:#b8dcff;font-size:12px}p{overflow-wrap:anywhere}pre{white-space:pre-wrap;max-height:300px;overflow:auto}#notice{min-height:24px;color:#d8ed9a}label{font-size:13px;color:#b6c6ed}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}@media(max-width:520px){header{padding:14px}main{padding:12px}h1{font-size:20px}}
-</style></head><body><header><div class="brandbar"><img id="brandLogo" src="${CERITEXA_LOGO}" width="68" height="68" alt="Logo resmi Ceritexa Studio"><div><h1>Ceritexa Studio</h1><small>AI Content Agent · Panex · Heros Real Life</small></div></div></header><main><article><div class="bar"><label for="token">Admin token (hanya di memori halaman)</label><input type="password" id="token" autocomplete="off" placeholder="Masukkan ADMIN_TOKEN"><button class="primary" id="refresh">Hubungkan</button></div><p id="notice">Masukkan token setelah dibuat di Cloudflare Dashboard. Public posting OFF.</p></article><section><h2>Status & kendali</h2><div id="status" class="cols"></div><div class="bar"><button id="pause">Pause All</button><button id="resume">Resume Drafting</button><button id="trends">Riset Tren</button><button id="metrics">Ambil Statistik</button><button id="verify">Uji koneksi sosial</button><button id="strategy">Evaluasi strategi</button><button id="publish">Periksa Jadwal</button></div></section><section><h2>Kesiapan Integrasi</h2><div id="readiness"></div><pre id="verifyResults">Belum ada verifikasi akun sosial.</pre></section><section><h2>Buat draft AI</h2><article><div class="bar"><select id="channel"><option value="facebook">Facebook Ceritexa</option><option value="panex">YouTube Panex</option><option value="heros">YouTube Heros</option></select><select id="format"><option>TEXT</option><option>PHOTO</option><option>COMIC</option><option>VIDEO</option></select><input id="topic" placeholder="Topik opsional"><button class="primary" id="generate">Buat draft</button></div><small>AI hanya membuat draft. Foto/komik menggunakan media KV; video memerlukan renderer. YouTube hanya menerima VIDEO.</small></article></section><section><h2>Konten dan persetujuan</h2><div id="posts"></div></section><section><h2>Strategi berbasis metrik</h2><pre id="strategyResult">Belum dievaluasi.</pre></section><section><h2>Tren</h2><div id="trendlist"></div></section></main><script>
+// Public install metadata only. Admin tokens and draft API responses are NEVER cached.
+const pwaManifest=Object.freeze({
+ name:'Ceritexa AI Content Agent',
+ short_name:'Ceritexa',
+ id:'/',
+ start_url:'/',
+ scope:'/',
+ display:'standalone',
+ display_override:['standalone','minimal-ui'],
+ orientation:'portrait',
+ background_color:'#0c1020',
+ theme_color:'#0c1020',
+ description:'Dashboard privat Ceritexa Studio, YouTube Panex dan Heros Real Life untuk review konten dengan persetujuan pemilik.',
+ lang:'id',
+ prefer_related_applications:false,
+ icons:[
+  {src:'/icon-192.svg',sizes:'192x192',type:'image/svg+xml',purpose:'any maskable'},
+  {src:'/icon-512.svg',sizes:'512x512',type:'image/svg+xml',purpose:'any maskable'},
+  {src:'/icon-96.jpg',sizes:'96x96',type:'image/jpeg',purpose:'any'}
+ ]
+});
+function appIcon(size){
+ if(size!==192&&size!==512)throw Error('Icon size invalid');
+ return '<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'" height="'+size+'" viewBox="0 0 512 512" role="img" aria-label="Ceritexa Studio">'+
+  '<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#101b4c"/><stop offset=".5" stop-color="#261244"/><stop offset="1" stop-color="#0c1020"/></linearGradient></defs>'+
+  '<rect width="512" height="512" rx="116" fill="url(#bg)"/>'+
+  '<image x="68" y="68" width="376" height="376" href="'+CERITEXA_LOGO+'" preserveAspectRatio="xMidYMid meet"/>'+
+  '</svg>';
+}
+// All shell resources public. Never cache /api, bearer headers, story/media responses or admin secrets.
+const serviceWorkerScript=`'use strict';
+const CACHE='ceritexa-public-shell-v1.4.0';
+const SHELL=['/','/manifest.webmanifest','/icon-192.svg','/icon-512.svg','/icon-96.jpg'];
+self.addEventListener('install',event=>{
+ event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting()));
+});
+self.addEventListener('activate',event=>{
+ event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('ceritexa-public-shell-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));
+});
+self.addEventListener('fetch',event=>{
+ const request=event.request;
+ if(request.method!=='GET'||request.headers.has('Authorization'))return;
+ const url=new URL(request.url);
+ if(url.origin!==self.location.origin||url.pathname.startsWith('/api/'))return;
+ if(url.pathname==='/manifest.webmanifest'||url.pathname.startsWith('/icon-')){
+  event.respondWith(caches.match(request).then(hit=>hit||fetch(request)));
+  return;
+ }
+ if(request.mode==='navigate'&&url.pathname==='/'){
+  event.respondWith(fetch(request).catch(()=>caches.match('/')));
+ }
+});
+`;
+const pwaPublicHeaders={'Cache-Control':'public, max-age=3600','X-Content-Type-Options':'nosniff'};
+const page=`<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0c1020"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" type="image/svg+xml" href="/icon-192.svg"><link rel="apple-touch-icon" href="/icon-96.jpg"><title>Ceritexa Studio — AI Content Agent</title><style>
+:root{font-family:system-ui,-apple-system,sans-serif;color:#eaf0ff;background:#0c1020}*{box-sizing:border-box}body{margin:0}header{padding:20px;background:linear-gradient(120deg,#203361,#321750);border-bottom:1px solid #3a4264}h1{margin:4px 0;font-size:24px}.install-card{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;background:#17234b;border:1px solid #4e69ae;border-radius:12px;padding:13px;margin:13px 0}.install-card h2{font-size:16px;margin:0}.install-card p{font-size:12px;color:#b5c7e8;margin:4px 0;line-height:1.5}.install-card button{background:#385cac;font-weight:600}[hidden]{display:none!important}.brandbar{display:flex;align-items:center;gap:14px}.brandbar img{border-radius:18px;border:1px solid rgba(220,240,255,.25);object-fit:cover;box-shadow:0 7px 22px rgba(24,91,255,.18)}small,.muted{color:#aeb8d3}main{max-width:1050px;margin:auto;padding:16px}.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}button,select,input,textarea{font:inherit;padding:10px;border-radius:9px;border:1px solid #4e5a83;color:#eaf0ff;background:#1c2544}textarea{width:100%;display:block;margin:8px 0}button{cursor:pointer}button:hover{background:#2b3b65}button.primary{background:#374ea1}input{max-width:100%}article{background:#171d35;border:1px solid #313b60;border-radius:13px;padding:14px;margin:12px 0}.draft-card{overflow:hidden;padding:0}.draft-body{padding:15px}.draft-poster{position:relative;display:grid;place-items:center;background:linear-gradient(125deg,#102852,#17132f);height:210px;overflow:hidden}.draft-poster img{width:100%;height:100%;object-fit:cover;display:block}.draft-poster img.fallback{width:120px;height:120px;object-fit:contain;border-radius:17px}.draft-poster small{position:absolute;bottom:8px;right:10px;background:rgba(9,13,32,.84);padding:3px 7px;border-radius:6px}.reject-toggle{color:#ffd2d2}.rejection-form{padding:12px;margin:10px 0;background:#2a1932;border:1px solid #87516b;border-radius:12px}.rejection-form select{max-width:100%}.danger{background:#7f2948;border-color:#b64b6d}.danger:hover{background:#9a345c}.rejected-card{border-color:#624457;opacity:.83}.revision-badge{color:#ffe0a1}.poster-hint{display:block;padding:4px 0;color:#bac8ed}section{margin:20px 0}.card{background:#121830;border:1px solid #313b60;padding:14px;border-radius:12px;margin:10px 0}h3{margin:5px 0}.tag{color:#b8dcff;font-size:12px}p{overflow-wrap:anywhere}pre{white-space:pre-wrap;max-height:300px;overflow:auto}#notice{min-height:24px;color:#d8ed9a}label{font-size:13px;color:#b6c6ed}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}@media(max-width:520px){header{padding:14px}main{padding:12px}h1{font-size:20px}}
+</style></head><body><header><div class="brandbar"><img id="brandLogo" src="${CERITEXA_LOGO}" width="68" height="68" alt="Logo resmi Ceritexa Studio"><div><h1>Ceritexa Studio</h1><small>AI Content Agent · Panex · Heros Real Life</small></div></div></header><main><div class="install-card" id="pwaInstallBox"><div><h2><span id="pwaStatus">Pasang Ceritexa di HP</span></h2><p id="pwaHint">Buka Chrome ⋮ → Tambahkan ke layar utama → Instal aplikasi. Dashboard perlu internet untuk mengelola draft.</p></div><button id="installPwa" type="button" hidden>Instal Ceritexa</button></div><article><div class="bar"><label for="token">Admin token (hanya di memori halaman)</label><input type="password" id="token" autocomplete="off" placeholder="Masukkan ADMIN_TOKEN"><button class="primary" id="refresh">Hubungkan</button></div><p id="notice">Masukkan token setelah dibuat di Cloudflare Dashboard. Public posting OFF.</p></article><section><h2>Status & kendali</h2><div id="status" class="cols"></div><div class="bar"><button id="pause">Pause All</button><button id="resume">Resume Drafting</button><button id="trends">Riset Tren</button><button id="metrics">Ambil Statistik</button><button id="verify">Uji koneksi sosial</button><button id="strategy">Evaluasi strategi</button><button id="publish">Periksa Jadwal</button></div></section><section><h2>Kesiapan Integrasi</h2><div id="readiness"></div><pre id="verifyResults">Belum ada verifikasi akun sosial.</pre></section><section><h2>Buat draft AI</h2><article><div class="bar"><select id="channel"><option value="facebook">Facebook Ceritexa</option><option value="panex">YouTube Panex</option><option value="heros">YouTube Heros</option></select><select id="format"><option>TEXT</option><option>PHOTO</option><option>COMIC</option><option>VIDEO</option></select><input id="topic" placeholder="Topik opsional"><button class="primary" id="generate">Buat draft</button></div><small>AI hanya membuat draft. Foto/komik menggunakan media KV; video memerlukan renderer. YouTube hanya menerima VIDEO.</small></article></section><section><h2>Konten dan persetujuan</h2><div id="posts"></div></section><section><h2>Strategi berbasis metrik</h2><pre id="strategyResult">Belum dievaluasi.</pre></section><section><h2>Tren</h2><div id="trendlist"></div></section></main><script>
 let token='';const el=id=>document.getElementById(id);const logoFallback=document.getElementById('brandLogo').src;const rejectionReasons=${JSON.stringify(REJECTION_REASONS)};let posterURLs=[];const safe=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 async function api(path,opts={}){if(!token)throw Error('Masukkan ADMIN_TOKEN');const r=await fetch('/api/'+path,{...opts,headers:{'Authorization':'Bearer '+token,...(opts.headers||{})}});let data=await r.json().catch(()=>({error:'Respons bukan JSON'}));if(!r.ok)throw Error(data.error||'HTTP '+r.status);return data}
 async function action(path,data){return api(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data||{})})}
@@ -412,6 +466,34 @@ el('pause').onclick=()=>work(()=>action('pause',{paused:true}));el('resume').onc
 el('trends').onclick=()=>work(()=>action('research'));el('metrics').onclick=()=>work(()=>action('metrics'));el('verify').onclick=()=>work(async()=>{const v=await api('connections/verify');el('verifyResults').textContent=JSON.stringify(v,null,2);return {connectionChecksComplete:true}});el('strategy').onclick=()=>work(async()=>{const v=await action('strategy');el('strategyResult').textContent=JSON.stringify(v,null,2);return {strategyEvaluated:true}});el('publish').onclick=()=>work(()=>action('publish'));
 el('generate').onclick=()=>work(()=>action('generate',{channel:el('channel').value,format:el('format').value,topic:el('topic').value}));
 el('channel').onchange=()=>{if(el('channel').value!=='facebook')el('format').value='VIDEO'};
+
+let deferredPwaPrompt=null;
+const standalone=()=>window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
+function syncPwaInstall(){
+ if(standalone()){
+  el('pwaStatus').textContent='Ceritexa terpasang';
+  el('pwaHint').textContent='Aplikasi terbuka dalam mode standalone. Draft dan tindakan admin tetap memerlukan koneksi internet.';
+  el('installPwa').hidden=true;
+ }else{
+  el('installPwa').hidden=!deferredPwaPrompt;
+  el('pwaHint').textContent=deferredPwaPrompt?'Tekan Instal Ceritexa untuk menambahkan aplikasi ke HP.':'Chrome Android: tekan menu ⋮ → Tambahkan ke layar utama → Instal aplikasi. Jika hanya ada pintasan, gunakan Chrome terbaru dan muat ulang halaman.';
+ }
+}
+window.addEventListener('beforeinstallprompt',event=>{
+ event.preventDefault();deferredPwaPrompt=event;syncPwaInstall();
+});
+window.addEventListener('appinstalled',()=>{deferredPwaPrompt=null;syncPwaInstall()});
+el('installPwa').onclick=async()=>{
+ if(!deferredPwaPrompt)return;
+ const prompt=deferredPwaPrompt;deferredPwaPrompt=null;
+ await prompt.prompt();await prompt.userChoice;syncPwaInstall();
+};
+if('serviceWorker' in navigator&&window.isSecureContext){
+ window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(()=>{
+  el('pwaHint').textContent='Pemasangan belum tersedia. Gunakan Chrome versi terbaru lalu muat ulang.';
+ }));
+}
+syncPwaInstall();
 </script></body></html>`;
 function mediaEnv(e){
  if(e.MEDIA||!e.MEDIAKV)return e;
@@ -423,7 +505,11 @@ function mediaEnv(e){
 async function handle(request,e){
  e=mediaEnv(e);
  const url=new URL(request.url),p=url.pathname,method=request.method;
- if(p==='/')return new Response(page,{headers:{'Content-Type':'text/html; charset=utf-8','Content-Security-Policy':"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; base-uri 'none'; frame-ancestors 'none'",'X-Content-Type-Options':'nosniff'}});
+ if(method==='GET'&&p==='/manifest.webmanifest')return new Response(JSON.stringify(pwaManifest),{headers:{...pwaPublicHeaders,'Content-Type':'application/manifest+json; charset=utf-8'}});
+ if(method==='GET'&&p==='/sw.js')return new Response(serviceWorkerScript,{headers:{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-cache','Service-Worker-Allowed':'/','X-Content-Type-Options':'nosniff'}});
+ if(method==='GET'&&(p==='/icon-192.svg'||p==='/icon-512.svg'))return new Response(appIcon(p==='/icon-192.svg'?192:512),{headers:{...pwaPublicHeaders,'Content-Type':'image/svg+xml; charset=utf-8'}});
+ if(method==='GET'&&p==='/icon-96.jpg')return new Response(Uint8Array.from(atob(CERITEXA_LOGO.split(',')[1]),c=>c.charCodeAt(0)),{headers:{...pwaPublicHeaders,'Content-Type':'image/jpeg'}});
+ if(p==='/')return new Response(page,{headers:{'Content-Type':'text/html; charset=utf-8','Content-Security-Policy':"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; worker-src 'self'; manifest-src 'self'; base-uri 'none'; frame-ancestors 'none'",'X-Content-Type-Options':'nosniff','Cache-Control':'no-store'}});
  if(p==='/api/health')return answer({ok:true,service:'ceritexa-content-agent',isolated:true,d1:!!e.DB,r2:!!e.MEDIAKV||!!e.MEDIA,mediaBackend:e.MEDIAKV?'KV':e.MEDIA?'R2':null,ai:!!e.AI,publishingConfigured:e.ALLOW_PUBLICATION==='true'});
  if(!p.startsWith('/api/'))return answer({error:'Not found'},404);
  const auth=request.headers.get('Authorization')||'';

@@ -1,4 +1,4 @@
-import {CHANNELS,validate,detectRisk,parseRss,score,parseAI,compareToken,gate,readiness,selectDraftTopic,validateRejection,creativeSimilarity,MAX_REVISION_DEPTH,REJECTION_REASONS} from './core.js';
+import {CHANNELS,validate,detectRisk,parseRss,score,parseAI,compareToken,gate,readiness,selectDraftTopic,validateRejection,creativeSimilarity,MAX_REVISION_DEPTH,REJECTION_REASONS,sceneBeats,scenePrompt,CINEMATIC_SCENE_COUNT} from './core.js';
 const utc=()=>new Date().toISOString(),uuid=()=>crypto.randomUUID();
 const answer=(v,c=200)=>Response.json(v,{status:c,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 const db=(env,q,...params)=>env.DB.prepare(q).bind(...params);
@@ -214,6 +214,66 @@ async function upload(e,id,req){
  if(!mp4)await run(e,"INSERT INTO draft_reviews(post_id,preview_media_key,updated_at) VALUES(?,?,?) ON CONFLICT(post_id) DO UPDATE SET preview_media_key=excluded.preview_media_key,updated_at=excluded.updated_at",id,key,utc());
  await audit(e,'MEDIA_UPLOADED',id,mime);return {id,media_key:key};
 }
+/** Add distinct original visual beats to an existing blocked VIDEO draft.
+ * The runner can resume partial creation; existing storyboard assets are not regenerated.
+ * Paid text-to-video models are deliberately NOT called.
+ */
+async function storyboard(e,id,generate=false){
+ const p=await row(e,'SELECT * FROM posts WHERE id=?',id);
+ if(!p||p.format!=='VIDEO'||!['panex','heros'].includes(p.channel))throw Error('Draft video tidak ditemukan');
+ if(generate&&!(p.state==='BLOCKED'&&p.media_type==='image/jpeg'))throw Error('Storyboard hanya boleh dibuat untuk video BLOCKED dengan ilustrasi JPEG');
+ if(!e.MEDIA||!e.AI&&generate)throw Error('Media atau Workers AI belum siap');
+ const beats=sceneBeats(p.story);
+ let saved=await list(e,'SELECT scene_index,media_key,beat,created_at FROM video_storyboard WHERE post_id=? ORDER BY scene_index',id);
+ if(generate){
+  if(!saved.some(x=>x.scene_index===0)){
+   const first=p.media_key||(await row(e,'SELECT preview_media_key FROM draft_reviews WHERE post_id=?',id))?.preview_media_key;
+   if(!first)throw Error('Ilustrasi utama belum ada. Buat gambar review dahulu.');
+   await run(e,'INSERT OR IGNORE INTO video_storyboard(post_id,scene_index,media_key,beat,prompt,created_at) VALUES(?,?,?,?,?,?)',id,0,first,beats[0].beat,scenePrompt(p,beats[0]),utc());
+  }
+  for(let i=1;i<CINEMATIC_SCENE_COUNT;i++){
+   saved=await list(e,'SELECT scene_index,media_key,beat,created_at FROM video_storyboard WHERE post_id=? ORDER BY scene_index',id);
+   if(saved.some(x=>x.scene_index===i))continue;
+   const used=await row(e,"SELECT COUNT(*) n FROM audit WHERE action='STORYBOARD_SCENE_CREATED' AND at>=?",utc().slice(0,10));
+   if(Number(used?.n||0)>=12)throw Error('Batas 12 gambar adegan AI/hari tercapai; coba besok atau gunakan storyboard yang sudah tersedia.');
+   const scene=beats[i],prompt=scenePrompt(p,scene),key='storyboard/'+id+'/'+i+'.jpg';
+   try{
+    await saveAIArtwork(e,key,prompt);
+    await run(e,'INSERT OR IGNORE INTO video_storyboard(post_id,scene_index,media_key,beat,prompt,created_at) VALUES(?,?,?,?,?,?)',id,i,key,scene.beat,prompt,utc());
+    await audit(e,'STORYBOARD_SCENE_CREATED',id,'scene '+(i+1)+' / 4; channel '+p.channel);
+   }catch(error){
+    await audit(e,'STORYBOARD_FAILED',id,'scene '+(i+1)+': '+String(error.message||error).slice(0,150));
+    throw error;
+   }
+  }
+  saved=await list(e,'SELECT scene_index,media_key,beat,created_at FROM video_storyboard WHERE post_id=? ORDER BY scene_index',id);
+  if(saved.length!==CINEMATIC_SCENE_COUNT)throw Error('Storyboard belum lengkap 4 adegan');
+  await audit(e,'STORYBOARD_READY',id,'4 distinct scene assets ready for motion-comic edit');
+ }
+ return {id,ready:saved.length===CINEMATIC_SCENE_COUNT,sceneCount:saved.length,
+  renderMode:'CINEMATIC_MOTION_COMIC',characterMotionGenerated:false,
+  scenes:saved.map(x=>({index:x.scene_index,beat:x.beat,previewPath:'/api/posts/'+id+'/storyboard/'+x.scene_index+'/image'}))};
+}
+async function storyboardImage(e,id,index){
+ const scene=await row(e,'SELECT media_key FROM video_storyboard WHERE post_id=? AND scene_index=?',id,index);
+ if(!scene||!e.MEDIA)return new Response('Scene not found',{status:404});
+ const file=await e.MEDIA.get(scene.media_key);
+ return file?new Response(file.body,{headers:{'Content-Type':'image/jpeg','Cache-Control':'private,no-store','X-Content-Type-Options':'nosniff'}}):new Response('Scene unavailable',{status:404});
+}
+/** Explicit opt-in re-render: previously produced MP4 object remains in KV unchanged. */
+async function upgradeVideo(e,id){
+ const p=await row(e,'SELECT * FROM posts WHERE id=?',id);
+ if(!p||p.format!=='VIDEO'||p.state!=='PENDING_REVIEW'||p.media_type!=='video/mp4')throw Error('Hanya video MP4 yang masih menunggu review dapat ditingkatkan');
+ const meta=await row(e,'SELECT preview_media_key FROM draft_reviews WHERE post_id=?',id);
+ const art=meta?.preview_media_key;
+ if(!art||!e.MEDIA||!(await e.MEDIA.get(art)))throw Error('Cover asli tidak tersedia. MP4 lama dipertahankan; tidak ada perubahan.');
+ const claimed=await run(e,"UPDATE posts SET media_key=?,media_type='image/jpeg',state='BLOCKED',risk_note='VIDEO_RENDER_REQUIRED',updated_at=? WHERE id=? AND state='PENDING_REVIEW' AND media_type='video/mp4'",
+ art,utc(),id);
+ if(claimed.meta?.changes!==1)throw Error('Draft telah berubah; muat ulang');
+ await audit(e,'VIDEO_CINEMATIC_UPGRADE_REQUESTED',id,'MP4 lama tetap tersimpan; render ulang 4 scene + neural TTS');
+ return {id,state:'BLOCKED',media_type:'image/jpeg',queued:true,existingVideoPreserved:true};
+}
+
 /** Renderer status from private GitHub Action; never changes approval or publication. */
 async function renderEvent(e,id,data){
  const state=String(data.status||'').toUpperCase();
@@ -589,11 +649,17 @@ async function handle(request,e){
  if(method==='GET'&&p==='/api/readiness')return answer(readiness(e,await isPaused(e)));
  if(method==='GET'&&p==='/api/connections/verify')return answer(await verifyConnections(e));
  if(method==='GET'&&p==='/api/status')return answer({paused:await isPaused(e),publicationEnabled:e.ALLOW_PUBLICATION==='true',mediaReady:!!e.MEDIA,mediaBackend:e.MEDIAKV?'KV':e.MEDIA?'R2':null,aiReady:!!e.AI,facebookReady:!!(e.FB_PAGE_ID&&e.FB_PAGE_ACCESS_TOKEN),panexReady:!!(e.YT_REFRESH_TOKEN_PANEX&&e.YT_CHANNEL_ID_PANEX),herosReady:!!(e.YT_REFRESH_TOKEN_HEROS&&e.YT_CHANNEL_ID_HEROS),channels:CHANNELS});
- if(method==='GET'&&p==='/api/posts')return answer({posts:await list(e,"SELECT p.*,r.parent_id,r.revision_depth,r.rejection_reason,r.rejection_note,r.regen_state,r.preview_media_key,r.last_error,(SELECT a.action||': '||a.detail FROM audit a WHERE a.entity_id=p.id AND a.action IN ('RENDER_STARTED','RENDER_FAILED','RENDER_COMPLETED') ORDER BY a.at DESC LIMIT 1) AS render_event FROM posts p LEFT JOIN draft_reviews r ON r.post_id=p.id ORDER BY p.created_at DESC LIMIT 100")});
+ if(method==='GET'&&p==='/api/posts')return answer({posts:await list(e,"SELECT p.*,r.parent_id,r.revision_depth,r.rejection_reason,r.rejection_note,r.regen_state,r.preview_media_key,r.last_error,(SELECT a.action||': '||a.detail FROM audit a WHERE a.entity_id=p.id AND a.action IN ('RENDER_STARTED','RENDER_FAILED','RENDER_COMPLETED') ORDER BY a.at DESC LIMIT 1) AS render_event,(SELECT COUNT(*) FROM video_storyboard vs WHERE vs.post_id=p.id) AS storyboard_count FROM posts p LEFT JOIN draft_reviews r ON r.post_id=p.id ORDER BY p.created_at DESC LIMIT 100")});
  if(method==='GET'&&p==='/api/trends')return answer({trends:await list(e,'SELECT * FROM trends ORDER BY created_at DESC LIMIT 30')});
  if(method==='GET'&&p==='/api/analytics')return answer({analytics:await list(e,'SELECT * FROM metrics ORDER BY observed_at DESC LIMIT 100')});
  if(method==='GET'&&p==='/api/strategy')return answer(await strategy(e));
  if(method==='GET'&&p==='/api/audit')return answer({events:await list(e,'SELECT * FROM audit ORDER BY at DESC LIMIT 40')});
+ if(method==='GET'){
+  const storyboardMatch=p.match(/^\/api\/posts\/([0-9a-f-]{36})\/storyboard$/);
+  if(storyboardMatch)return answer(await storyboard(e,storyboardMatch[1],false));
+  const sceneMatch=p.match(/^\/api\/posts\/([0-9a-f-]{36})\/storyboard\/([0-3])\/image$/);
+  if(sceneMatch)return storyboardImage(e,sceneMatch[1],Number(sceneMatch[2]));
+ }
  if(method==='GET'&&p.startsWith('/api/media/'))return media(e,p.slice('/api/media/'.length));
  if(method==='GET'&&p.startsWith('/api/preview/'))return media(e,p.slice('/api/preview/'.length),true);
  if(method==='POST'){
@@ -607,13 +673,15 @@ async function handle(request,e){
   if(p==='/api/publish')return answer(await publish(e));
   if(p==='/api/metrics')return answer(await analytics(e));
   if(p==='/api/strategy')return answer(await strategy(e));
-  const match=p.match(/^\/api\/posts\/([0-9a-f-]{36})\/(approve|schedule|media|edit|reject|regenerate|preview|render-event)$/);
+  const match=p.match(/^\/api\/posts\/([0-9a-f-]{36})\/(approve|schedule|media|edit|reject|regenerate|preview|render-event|storyboard|upgrade-video)$/);
   if(match){
    if(match[2]==='approve')return answer(await approve(e,match[1]));
    if(match[2]==='reject')return answer(await rejectDraft(e,match[1],data.reason,data.note));
    if(match[2]==='regenerate')return answer(await retryRegeneration(e,match[1]));
    if(match[2]==='preview')return answer(await regenerateCover(e,match[1]));
    if(match[2]==='render-event')return answer(await renderEvent(e,match[1],data));
+   if(match[2]==='storyboard')return answer(await storyboard(e,match[1],true));
+   if(match[2]==='upgrade-video')return answer(await upgradeVideo(e,match[1]));
    if(match[2]==='edit')return answer(await edit(e,match[1],data));
    if(match[2]==='schedule')return answer(await schedule(e,match[1],data.date));
    if(match[2]==='media')return answer(await upload(e,match[1],request));

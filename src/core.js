@@ -152,3 +152,34 @@ export function creativeSimilarity(a,b){
  let common=0;for(const w of x)if(y.has(w))common++;
  return common/(x.size+y.size-common);
 }
+
+/** Storyboard beats are contiguous segments of the original script, never invented news. */
+export const CINEMATIC_SCENE_COUNT=4;
+export function sceneBeats(story){
+ const words=String(story||'').trim().split(/\s+/).filter(Boolean);
+ if(words.length<32)throw Error('Naskah video terlalu singkat untuk 4 adegan');
+ const shots=['establishing wide shot of environment and main character','intimate medium shot with expressive body language','dramatic close-up of the turning point','hopeful cinematic closing shot with resolved visual action'];
+ const segments=[];
+ for(let i=0;i<CINEMATIC_SCENE_COUNT;i++){
+  const start=Math.floor(i*words.length/CINEMATIC_SCENE_COUNT);
+  const end=Math.floor((i+1)*words.length/CINEMATIC_SCENE_COUNT);
+  segments.push({index:i,beat:words.slice(start,end).join(' ').slice(0,420),shot:shots[i]});
+ }
+ return segments;
+}
+export function scenePrompt(post,scene){
+ const channel=post.channel;
+ if(!['panex','heros'].includes(channel))throw Error('Storyboard hanya untuk channel YouTube');
+ if(!Number.isInteger(scene.index)||scene.index<0||scene.index>=CINEMATIC_SCENE_COUNT)throw Error('Nomor adegan tidak valid');
+ const style=channel==='heros'
+  ?'high-end original superhero fantasy concept art, vivid cinematic light, expressive original heroic costume, dramatic atmosphere'
+  :'high-end cinematic realistic Indonesian life-drama film still, warm natural human expression, tactile environment, film lighting';
+ const base=String(post.image_prompt||'').slice(0,300);
+ return [style,'Portrait 9:16 vertical composition. Distinct story beat',scene.index+1,'of 4.',
+ 'Maintain the original character identity, clothing palette and location across all four frames.',
+ 'Original character and environment guide:',base,
+ 'Narrative beat (translate its situation visually without rendering written words):',scene.beat,
+ 'Camera composition:',scene.shot,
+ 'A distinct scene with meaningful visible narrative action, not the exact same pose or background.',
+ 'NO captions, NO lettering, NO watermarks, NO logos, NO recognizable copyrighted superhero characters.'].join(' ').slice(0,1150);
+}

@@ -51,7 +51,7 @@ async function loginOwner(req,e){
   return ownerJson({error:lock?'Terlalu banyak percobaan. Coba lagi nanti.':'Admin Token tidak sesuai'},lock?429:401);
  }
  await run(e,'DELETE FROM admin_login_limits WHERE client_hash=?',client);
- const token=newOpaqueToken(),hash=await digestHex(token),expires=now+SESSION_SECONDS;
+ const token=newOpaqueToken(),hash=await digestHex(e.ADMIN_TOKEN+':'+token),expires=now+SESSION_SECONDS;
  await run(e,'INSERT INTO admin_sessions(session_hash,created_at,expires_at,last_seen) VALUES(?,?,?,?)',hash,now,expires,now);
  await audit(e,'OWNER_LOGIN','','Owner session started using secure cookie');
  return ownerJson({authenticated:true,session:'active'},200,ownerCookie(token,SESSION_SECONDS));
@@ -59,7 +59,7 @@ async function loginOwner(req,e){
 async function readOwnerSession(req,e){
  const token=cookieValue(req,SESSION_COOKIE);
  if(!/^[a-f0-9]{64}$/.test(token)||!e.DB)return null;
- const hash=await digestHex(token);
+ const hash=await digestHex(e.ADMIN_TOKEN+':'+token);
  const data=await row(e,'SELECT session_hash,expires_at,last_seen FROM admin_sessions WHERE session_hash=?',hash);
  const now=sessionNow();
  if(!data||Number(data.expires_at)<=now)return null;

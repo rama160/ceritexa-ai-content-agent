@@ -67,3 +67,9 @@ Cloudflare Cron 00:00 UTC (08:00 WITA) executes metrics refresh, strategy assess
 - Client attaches link rel=manifest and progressive install instructions, handles beforeinstallprompt/appinstalled and registers service worker via navigator.serviceWorker.register('/sw.js') on secure context.
 - Service worker caches strictly public / shell, manifest and icons. Navigations use network-first with offline shell fallback. Requests with Authorization, any /api/ path, non-GET actions, private media, and cross-origin URLs are NEVER intercepted/cached. Admin bearer token is kept in volatile JS memory only; offline backend actions unavailable.
 - Worker HTML Content-Security-Policy extended only by worker-src 'self' and manifest-src 'self'. Scripted controls stay under existing dashboard; no changes to OAuth, D1, media KV, schedule or public posting.
+
+## v1.4.2 — Renderer to D1 verification contract
+- Existing tools/render_video.py reads BLOCKED JPEG VIDEO drafts via protected Worker API, renders with espeak-ng + ffmpeg, validates with ffprobe and uploads MP4 to the existing POST /api/posts/:id/media.
+- Upload modifies post media_type to video/mp4 and state to PENDING_REVIEW. Renderer follows with GET posts verification; only then returns success. Any render error returns nonzero and is visible in GitHub step logs.
+- Existing src/index.js /api/posts/:id/render-event (admin Bearer) writes RENDER_STARTED/FAILED/COMPLETED to the original audit table. Never accepts COMPLETED if D1 lacks a finished MP4. GET posts includes latest render event for dashboard display. No new database table, no new secrets.
+- Existing PWA shows JPEG as cover and a prominent ▶ Putar MP4 overlay when MP4 is ready. No additional Worker and no public posting.

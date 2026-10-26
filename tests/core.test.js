@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {CHANNELS,validate,detectRisk,parseRss,score,parseAI,compareToken,gate,readiness,selectDraftTopic,EDITORIAL_TOPICS,validateRejection,creativeSimilarity,MAX_REVISION_DEPTH,REJECTION_REASONS,sceneBeats,scenePrompt,CINEMATIC_SCENE_COUNT} from '../src/core.js';
+import {CHANNELS,validate,detectRisk,parseRss,score,parseAI,compareToken,gate,readiness,selectDraftTopic,EDITORIAL_TOPICS,validateRejection,creativeSimilarity,MAX_REVISION_DEPTH,REJECTION_REASONS,sceneBeats,scenePrompt,MAX_STORYBOARD_SCENES,SCENE_IMAGE_DAILY_LIMIT,SCENES_PER_REQUEST} from '../src/core.js';
 test('kanal terisolasi',()=>{assert.match(CHANNELS.panex.topic,/keluarga/);assert.match(CHANNELS.heros.topic,/superhero/);assert.throws(()=>validate('panex','TEXT'));assert.equal(validate('facebook','PHOTO'),true)});
 test('mengurai RSS',()=>{const x='<item><title><![CDATA[Drama &amp; Keluarga]]></title><link>https://example.org/a</link></item>';assert.equal(parseRss(x)[0].topic,'Drama & Keluarga')});
 test('menolak IP eksternal',()=>{assert.ok(detectRisk('Batman'));assert.equal(score('Marvel hero','heros'),0)});
@@ -281,15 +281,14 @@ test('renderer failures are explicit and live card distinguishes MP4 from JPEG',
  assert.match(py,/::error::/);
  assert.match(workflow,/python tools\/render_video\.py --self-test/);
  assert.match(workflow,/Validate Ceritexa GitHub secret/);
- assert.match(workflow,/Render FOUR cinematic scenes, neural narration and verify MP4/);
+ assert.match(workflow,/Render adaptive story scenes, neural narration and verify MP4/);
 });
 
-test('four original cinematic scenes from one story and brand-consistent prompts',()=>{
+test('narrative-driven variable scenes preserve full original story and consistent channel prompts',()=>{
  const story=Array.from({length:120},(_,i)=>['Seorang','pemuda','menemukan','cahaya','misterius','di','desa','kemudian','menolong','keluarganya'][i%10]).join(' ');
  const beats=sceneBeats(story);
- assert.equal(CINEMATIC_SCENE_COUNT,4);
- assert.equal(beats.length,4);
- assert.ok(beats.every((b,i)=>b.index===i&&b.beat.length>70));
+ assert.ok(beats.length>4&&beats.length<=MAX_STORYBOARD_SCENES);
+ assert.ok(beats.every((b,i)=>b.index===i&&b.total===beats.length&&b.words>=4));
  assert.equal(beats.map(x=>x.beat).join(' ').replace(/\s+/g,' '),story);
  const a=scenePrompt({channel:'panex',image_prompt:'Indonesian teenager with blue shirt'},beats[1]);
  const b=scenePrompt({channel:'heros',image_prompt:'Original blue-cloaked guardian'},beats[2]);
@@ -364,7 +363,7 @@ test('owner cinematic upgrade preserves original MP4 while returning draft to BL
  assert.ok(events.length>0);
  assert.equal((await app.fetch(req(),env)).status,400);
 });
-test('four storyboard image assets are idempotent across retries',async()=>{
+test('adaptive storyboard generation batches preserve progress and remain idempotent',async()=>{
  const core=readFileSync(new URL('../src/core.js',import.meta.url),'utf8').replace(/^export /gm,'');
  const idx=readFileSync(new URL('../src/index.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/,'').replace(/^export /gm,'').replace('default{','const __worker={');
  const app=new Function(core+'\n'+idx+'\nreturn __worker;')();
@@ -385,15 +384,26 @@ test('four storyboard image assets are idempotent across retries',async()=>{
   }}}}}
  };
  const req=()=>new Request('https://ceritexa.test/api/posts/'+id+'/storyboard',{method:'POST',headers:{Authorization:'Bearer '+env.ADMIN_TOKEN,'Content-Type':'application/json'},body:'{}'});
- const first=await app.fetch(req(),env);const payload1=await first.json();
+ const first=await app.fetch(req(),env);let plan=await first.json();
  assert.equal(first.status,200);
- assert.equal(payload1.sceneCount,4);
- assert.equal(payload1.ready,true);
- assert.equal(payload1.characterMotionGenerated,false);
- assert.equal(generated,3);
- assert.equal(sceneRows.length,4);
+ assert.ok(plan.plannedCount>4);
+ assert.equal(plan.sceneCount,SCENES_PER_REQUEST+1);
+ assert.equal(plan.ready,false);
+ assert.equal(plan.characterMotionGenerated,false);
+ assert.equal(generated,SCENES_PER_REQUEST);
+ let attempts=0;
+ while(!plan.ready&&attempts++<16){
+   const result=await app.fetch(req(),env);assert.equal(result.status,200);
+   plan=await result.json();
+   if(plan.dailyLimitReached)throw Error('Fixture hit daily quota unexpectedly');
+ }
+ assert.equal(plan.ready,true);
+ assert.equal(plan.sceneCount,plan.plannedCount);
+ assert.equal(sceneRows.length,plan.plannedCount);
+ assert.equal(generated,plan.plannedCount-1);
  const again=await app.fetch(req(),env);
- assert.equal(again.status,200);assert.equal(generated,3);assert.equal(sceneRows.length,4);
+ assert.equal(again.status,200);assert.equal(generated,plan.plannedCount-1);
+ assert.equal(sceneRows.length,plan.plannedCount);
  const mediaRes=await app.fetch(new Request('https://ceritexa.test/api/posts/'+id+'/storyboard/2/image',{headers:{Authorization:'Bearer '+env.ADMIN_TOKEN}}),env);
  assert.equal(mediaRes.status,200);
  assert.match(mediaRes.headers.get('Content-Type'),/image\/jpeg/);
@@ -409,4 +419,38 @@ test('storyboard gallery keeps scene images private and cleans up blob URLs',()=
  assert.match(src,/activeSceneUrls\)URL\.revokeObjectURL/);
  assert.match(src,/scene-gallery/);
  assert.match(src,/Gerakan kamera|gerakan kamera/);
+});
+
+test('scene count responds to narrative pacing, action and transitions without fixed 4',()=>{
+ const calm=Array.from({length:112},(_,i)=>['Seorang','ibu','memandang','rumah','di','ujung','desa','dan','mengingat','keluarganya'][i%10]).join(' ');
+ const action=Array.from({length:112},(_,i)=>['Tiba-tiba','pahlawan','berlari','menyelamatkan','warga','namun','ledakan','mengubah','jalan','pulang'][i%10]).join(' ');
+ const calmPanex=sceneBeats(calm,'panex');
+ const activeHeros=sceneBeats(action,'heros');
+ assert.ok(calmPanex.length>4);
+ assert.ok(activeHeros.length>calmPanex.length);
+ assert.ok(activeHeros.every(x=>x.total===activeHeros.length));
+ assert.equal(activeHeros.map(x=>x.beat).join(' '),action);
+ assert.equal(calmPanex.map(x=>x.beat).join(' '),calm);
+ assert.ok(activeHeros.every(x=>x.estimatedSeconds>0));
+ assert.equal(SCENES_PER_REQUEST,3);
+ assert.equal(SCENE_IMAGE_DAILY_LIMIT,12);
+ assert.ok(MAX_STORYBOARD_SCENES>=20);
+});
+test('dynamic storyboard schema migrates previous four records without introducing a parallel permanent table',()=>{
+ const migration=readFileSync(new URL('../migrations/0004_dynamic_storyboard.sql',import.meta.url),'utf8');
+ assert.match(migration,/INSERT OR IGNORE INTO video_storyboard_flexible_stage/);
+ assert.match(migration,/SELECT post_id,scene_index,media_key,beat,prompt,created_at FROM video_storyboard/);
+ assert.match(migration,/ALTER TABLE video_storyboard_flexible_stage RENAME TO video_storyboard/);
+ assert.match(migration,/scene_index BETWEEN 0 AND 63/);
+});
+test('renderer supports variable length story images and proportional narration timing',()=>{
+ const py=readFileSync(new URL('../tools/render_video.py',import.meta.url),'utf8');
+ assert.match(py,/def scene_durations/);
+ assert.match(py,/def motion_graph\(durations/);
+ assert.match(py,/concat=n=\{len\(durations\)\}/);
+ assert.match(py,/dailyLimitReached/);
+ assert.match(py,/len\(scenes\) != planned/);
+ assert.ok(!py.includes('len(scenes) != 4'));
+ assert.ok(!py.includes('scene_count != 4'));
+ assert.match(py,/scene_count=\{len\(scenes\)\}/);
 });

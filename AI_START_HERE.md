@@ -1,5 +1,5 @@
 # AI START HERE — Ceritexa canonical rules
-Version 1.3.0 — 2026-10-25
+Version 1.4.0 — 2026-10-25
 
 1. Always read this file, PHASE.md, CHANGELOG.md, PRD.md and ARSITEKTUR.md before work.
 2. Edit existing owner modules rather than writing similar/duplicate files; do not add suffixes *_fixed, *_new, _v2.
@@ -38,3 +38,8 @@ Version 1.3.0 — 2026-10-25
 30. On rejection preserve old post in REJECTED state, record feedback, generate a distinct child based on the original topic with creativeSimilarity, maximum three child revisions. If model generation fails, report FAILED and allow explicit retry only. Never auto-approve or publish any regenerated content.
 31. TEXT, PHOTO, COMIC and VIDEO all attempt AI image previews on creation; old drafts can request an artwork via existing preview endpoint. AI media is privately stored in Ceritexa KV; fallback uses owner's actual logo. Preserve preview_media_key when a VIDEO draft's media_key becomes MP4.
 32. Only Ceritexa Worker resources and secrets may be touched; ALLOW_PUBLICATION=false remains mandatory throughout pilot testing.
+
+33. Ceritexa Android install is a Progressive Web App, not a new Flutter/Android app and not a new Cloudflare Worker. The canonical web manifest, brand icon endpoints, and service-worker source are defined in existing src/index.js so manual single-script Cloudflare deploy still works. Do not introduce duplicate dashboard or parallel service-worker modules.
+34. PWA public routes are GET /manifest.webmanifest, /sw.js, /icon-192.svg, /icon-512.svg and /icon-96.jpg. They do not require admin authorization. Manifest uses display=standalone, scope=/, start_url=/ and original Ceritexa branding. The dashboard registers the service worker only on HTTPS and supports beforeinstallprompt as available, with an Android Chrome menu fallback.
+35. SECURITY CRITICAL: service-worker cache contains ONLY the public HTML shell and icons/manifest. Do not cache ANY /api/ response, private photo/video/blob, bearer authorization header, draft content, analytics, access token or admin token. On offline startup show shell but API operations require internet and private login. Never save ADMIN_TOKEN in localStorage, IndexedDB, Cookies, cache, or manifest.
+36. All changes stay on ceritexa-content-agent Worker only; published posting remains ALLOW_PUBLICATION=false. Update existing tests/core.test.js plus documentation on every PWA change. If PWA browser prompt is absent, document manual Chrome menu installation rather than claiming guaranteed prompt.

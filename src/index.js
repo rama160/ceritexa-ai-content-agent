@@ -546,8 +546,11 @@ function renderDraft(x){
  const id=safe(x.id),reviewable=['PENDING_REVIEW','BLOCKED'].includes(x.state);
  const reasonSelect='<select data-reason="'+id+'">'+rejectionReasons.map(r=>'<option value="'+safe(r)+'">'+safe(r)+'</option>').join('')+'</select>';
  const isMp4=x.media_type==='video/mp4';
+ const sceneCount=Math.max(0,Number(x.storyboard_count||0));
  const viewLabel=isMp4?'Putar video MP4':x.format==='VIDEO'?'Lihat ilustrasi (MP4 belum siap)':'Perbesar gambar asli';
- const actions=(reviewable?'<button data-gencover="'+id+'">'+(x.preview_media_key?'Ganti ilustrasi AI':'Buat gambar review AI')+'</button>':'')+(x.media_key?'<button type="button" data-view="'+id+'" data-media-label="'+safe(viewLabel)+'" data-media-type="'+safe(x.media_type||'')+'">'+safe(viewLabel)+'</button>':'')+
+ const actions=(x.format==='VIDEO'&&x.state==='BLOCKED'?'<button data-storyboard="'+id+'">Siapkan storyboard 4 adegan ('+sceneCount+'/4)</button>':'')+
+  (x.format==='VIDEO'&&isMp4&&x.state==='PENDING_REVIEW'?'<button data-upgradevideo="'+id+'">Render ulang jadi video sinematik</button>':'')+
+  (reviewable?'<button data-gencover="'+id+'">'+(x.preview_media_key?'Ganti ilustrasi AI':'Buat gambar review AI')+'</button>':'')+(x.media_key?'<button type="button" data-view="'+id+'" data-media-label="'+safe(viewLabel)+'" data-media-type="'+safe(x.media_type||'')+'">'+safe(viewLabel)+'</button>':'')+
   (reviewable?'<input type="file" data-file="'+id+'" accept="'+(x.format==='VIDEO'?'video/mp4':'image/jpeg,image/png')+'"><button data-upload="'+id+'">Ganti / tambah media</button>':'')+
   (x.state==='PENDING_REVIEW'?'<button data-approve="'+id+'">Setujui setelah review</button>':'')+
   (x.state==='APPROVED'?'<input type="datetime-local" data-date="'+id+'"><button data-schedule="'+id+'">Jadwalkan (WITA perangkat)</button>':'');
@@ -562,7 +565,8 @@ function renderDraft(x){
  const status='<span class="tag">'+safe(x.channel)+' · '+safe(x.format)+' · '+safe(x.state)+'</span>';
  const videoNotice=x.format==='VIDEO'&&!isMp4?'<p class="video-notice">Ini masih ilustrasi AI, bukan video MP4. Render melalui <a href="https://github.com/rama160/ceritexa-ai-content-agent/actions/workflows/render-video.yml" target="_blank" rel="noopener noreferrer">GitHub Actions Ceritexa</a> untuk membuat video sebelum review dan upload.</p>':'';
  const renderFeedback=x.format==='VIDEO'&&x.state==='BLOCKED'&&x.render_event?'<p class="video-notice">'+safe(x.render_event)+'</p>':'';
- return '<article class="draft-card '+(x.state==='REJECTED'?'rejected-card':'')+'" id="draft-'+id+'">'+poster+'<div class="draft-body">'+status+revision+feedback+'<h3>'+safe(x.title)+'</h3><p>'+safe(x.caption)+'</p>'+videoNotice+renderFeedback+'<details><summary>Baca naskah</summary><p>'+safe(x.story)+'</p></details><small>'+safe(x.risk_note||'')+'</small><div class="bar">'+actions+retry+'</div>'+reject+editForm+'</div></article>';
+ const videoQuality=x.format==='VIDEO'?'<p class="video-notice">'+(isMp4?(String(x.render_event||'').includes('CINEMATIC_MOTION_COMIC')?'Mode: empat adegan, gerakan kamera sinematik, narasi neural.':'MP4 lama: kemungkinan satu foto dan suara robotik. Gunakan Render ulang jadi video sinematik.'):'Storyboard: '+sceneCount+'/4 adegan. Render setelah semua adegan siap.')+'</p>':'';
+ return '<article class="draft-card '+(x.state==='REJECTED'?'rejected-card':'')+'" id="draft-'+id+'">'+poster+'<div class="draft-body">'+status+revision+feedback+'<h3>'+safe(x.title)+'</h3><p>'+safe(x.caption)+'</p>'+videoNotice+videoQuality+renderFeedback+'<details><summary>Baca naskah</summary><p>'+safe(x.story)+'</p></details><small>'+safe(x.risk_note||'')+'</small><div class="bar">'+actions+retry+'</div>'+reject+editForm+'</div></article>';
 }
 async function loadPosters(){
  for(const url of posterURLs)URL.revokeObjectURL(url);
@@ -583,6 +587,10 @@ el('posts').innerHTML=p.posts.length?p.posts.map(renderDraft).join(''):'<p class
 await loadPosters();
 el('trendlist').innerHTML=t.trends.map(x=>'<div class="card"><b>'+safe(x.topic)+'</b><br><small>'+safe(x.source)+'</small></div>').join('')||'<p class="muted">Belum ada riset.</p>';
 document.querySelectorAll('[data-save]').forEach(b=>b.onclick=()=>work(()=>action('posts/'+b.dataset.save+'/edit',{title:document.querySelector('[data-title="'+b.dataset.save+'"]').value,caption:document.querySelector('[data-caption="'+b.dataset.save+'"]').value,story:document.querySelector('[data-story="'+b.dataset.save+'"]').value})));
+document.querySelectorAll('[data-storyboard]').forEach(b=>b.onclick=()=>work(()=>action('posts/'+b.dataset.storyboard+'/storyboard',{})));
+document.querySelectorAll('[data-upgradevideo]').forEach(b=>b.onclick=()=>{
+ if(confirm('Render ulang MP4 menggunakan empat ilustrasi adegan dan suara neural? MP4 lama tetap disimpan, tetapi draft kembali BLOCKED sampai render baru selesai.'))work(()=>action('posts/'+b.dataset.upgradevideo+'/upgrade-video',{}));
+});
 document.querySelectorAll('[data-gencover]').forEach(b=>b.onclick=()=>work(()=>action('posts/'+b.dataset.gencover+'/preview',{})));
 document.querySelectorAll('[data-reject]').forEach(b=>b.onclick=()=>work(()=>action('posts/'+b.dataset.reject+'/reject',{reason:document.querySelector('[data-reason="'+b.dataset.reject+'"]').value,note:document.querySelector('[data-note="'+b.dataset.reject+'"]').value})));
 document.querySelectorAll('[data-retry]').forEach(b=>b.onclick=()=>work(()=>action('posts/'+b.dataset.retry+'/regenerate',{})));

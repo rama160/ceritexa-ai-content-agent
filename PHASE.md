@@ -1,4 +1,4 @@
-# PHASE — Ceritexa AI Content Agent v1.7.0
+# PHASE — Ceritexa AI Content Agent v1.7.1
 Updated: 2026-10-26 (WITA). Source of truth: test evidence, not feature claims.
 
 | Phase | Status | Verifikasi |
@@ -158,3 +158,9 @@ Owner reports first three setup tasks completed. Remaining Facebook and two YouT
 - Replaced obsolete single-page expectations in tests/core.test.js; 36/36 in-process regression/mock tests pass, including server-side login/me repeated calls/logout and CSRF/bearer fallback. Worker and extracted inline browser JS compile.
 - Production PUT of isolated Cloudflare ceritexa-content-agent succeeded HTTP 200. Management GET confirms 100% traffic on latest Worker with approved v3 UI, login routes, editor config and public shell v1.7.0. Preserved six secrets, two existing Worker Cron triggers, dedicated D1/KV bindings, and ALLOW_PUBLICATION=false. No other Worker touched.
 - Browser testing with actual owner's Admin Token and installed PWA is pending owner interaction; do not report real-user login as independently completed, and do not reveal private tokens.
+
+## v1.7.1 — Connectivity-state hardening (26 October 2026)
+- Implemented same-origin persistent session behavior on owner-approved dashboard v3: failed /api/auth/me fetch shows "Koneksi terputus" instead of login; reconnect retry and browser online event renew the existing session.
+- Explicit session invalidation still displays login. Logout requires 2xx /api/auth/logout response with authenticated:false; a failed request does not falsely claim successful signout.
+- Home/Draft/Analitik/Tren, review/approved tabs and rejected-hidden behavior remain. Existing GitHub Actions CI passed on source changes. Real owner-device offline/online acceptance still pending.
+- All changes confined to canonical src/index.js and tests/core.test.js; no extra Worker, migration, paid service or change to Nusa Penida Experiences / Spenva.

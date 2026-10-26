@@ -90,3 +90,9 @@ Owner reports first three setup tasks completed. Remaining Facebook and two YouT
 - Secure service worker caches ONLY public shell, icons and manifest; NEVER API, drafts, private images, tokens, bearer headers or cross-origin requests. Offline UI shell does not imply offline AI, approvals or media functionality. Existing admin token memory-only; relogin required on app relaunch.
 - Worker/router syntax verified, simulated GET public routes return HTTP 200 with declared MIME and unauthenticated /api/posts returns 503 without server secret. Browser WebAPK prompt/install result has not been externally observed; owner acceptance remains required.
 - ALLOW_PUBLICATION=false stays fixed; all Facebook and YouTube secrets untouched. Cloudflare management deployment verification should be recorded after upload.
+
+### Deployment closeout — 26 October 2026
+- Cloudflare management API PUT returned HTTP 200 for isolated `ceritexa-content-agent`. Subsequent GET of installed Worker source confirmed manifest, service worker, 192/512 branded icon routes, beforeinstallprompt and existing reject workflow. Deployment API reported latest version at 100% traffic.
+- All six previously configured secret bindings preserved; all Page/YouTube IDs unchanged; Cron triggers remain `0 0 * * *` and `*/15 * * * *`; ALLOW_PUBLICATION=false.
+- 19 JS tests passed in isolated in-tool harness (including mock HTTP app route, complete draft reject flow, brand icon/manifest and SW cache guards). GitHub Actions hosted results not independently observed, Android home-screen installation still owner confirmation pending.
+- D1 posts are unchanged by the PWA deploy; no Cloudflare account resources belonging to Spenva/Finchat or Nusa Penida Experiences were modified.

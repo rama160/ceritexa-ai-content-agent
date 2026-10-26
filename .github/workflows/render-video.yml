@@ -46,7 +46,7 @@ jobs:
           edge-tts --list-voices | grep -E 'id-ID-(Ardi|Gadis)Neural' | head -n 2
           echo "Neural TTS uses an online unofficial Edge endpoint; errors fail closed (no robotic fallback)."
 
-      - name: Render FOUR cinematic scenes, neural narration and verify MP4
+      - name: Render adaptive story scenes, neural narration and verify MP4
         env:
           CERITEXA_WORKER_URL: https://ceritexa-content-agent.finchat-ai-gateway.workers.dev
           CERITEXA_ADMIN_TOKEN: ${{ secrets.CERITEXA_ADMIN_TOKEN }}

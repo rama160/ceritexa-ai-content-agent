@@ -121,9 +121,9 @@ async function regenerateCover(e,id){
  const key='review/'+id+'/'+uuid()+'.jpg';
  await saveAIArtwork(e,key,prompt);
  await run(e,"INSERT INTO draft_reviews(post_id,preview_media_key,updated_at) VALUES(?,?,?) ON CONFLICT(post_id) DO UPDATE SET preview_media_key=excluded.preview_media_key,updated_at=excluded.updated_at",id,key,utc());
- if(p.format!=='VIDEO'||(p.media_type||'').startsWith('image/')){
-  await run(e,'UPDATE posts SET media_key=?,media_type=?,updated_at=? WHERE id=?',key,'image/jpeg',utc(),id);
- }
+ const isVideo=p.format==='VIDEO';
+ await run(e,"UPDATE posts SET media_key=?,media_type='image/jpeg',state=?,risk_note=?,updated_at=? WHERE id=?",
+   key,isVideo?'BLOCKED':'PENDING_REVIEW',isVideo?'VIDEO_RENDER_REQUIRED':'',utc(),id);
  await audit(e,'PREVIEW_GENERATED',id,'Owner-generated review artwork');
  return {id,previewReady:true,updated:true};
 }

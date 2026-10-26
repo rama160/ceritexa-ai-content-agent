@@ -1,4 +1,4 @@
-# PRD — Ceritexa AI Content Agent 1.6.1
+# PRD — Ceritexa AI Content Agent 1.7.0
 Tanggal: 25 Oktober 2026 | Status: IMPLEMENTASI BERTAHAP
 
 ## Produk, pemilik dan batasan
@@ -115,3 +115,10 @@ Tests + build green, Cloudflare bound and deploy, admin denied without token, po
 - Progressive storyboard generation from PWA runs in bounded batches via one owner click, with an explicit incomplete/quota status rather than truncating the planned count.
 - Before any live render, the GitHub workflow exercises the same FFmpeg H264/AAC camera-motion/subtitle encoder with distinct synthetic scenes and no credentials or public provider calls.
 - Internal acceptance evidence: GitHub Actions uploaded an eight-scene Panex MP4 using a neural Indonesian narrator to the isolated Ceritexa D1/KV, with audit RENDER_COMPLETED; all user-owned legacy drafts remain untouched and public posting stays OFF.
+
+## v1.7.0 — Approved clean, mobile-first four-page owner dashboard
+- Owner APPROVED preview v3 with 4 separate navigable views: Home for focus and counts, Draft with Review and Disetujui tabs, Analitik with real metrics and filters, Tren with editable ideas. No excessively long single-page scroll and NO integration-readiness card. Mobile bottom navigation and desktop sidebar remain responsive; branded Ceritexa styling preserved.
+- Drafts in states BLOCKED/PENDING_REVIEW appear in Review. APPROVED/SCHEDULED/PUBLISHED are collected under Disetujui. REJECTED is excluded from both active lists but all rejected rows/audit and automated revisions remain in database.
+- Reuse existing actions: generate, edit, approve, reject with reasons and improvements, preview original JPEG/MP4, upload media, owner-initiated cinematic re-render, storyboard gallery, scheduling, trend research and actual analytics. No duplicate endpoints or fake metrics.
+- Owner remains logged in across ordinary reloads and browser/app restarts after one Admin Token connection. Backend stores only hashed opaque session tokens in D1; secure SameSite Strict HttpOnly cookie with server-side revocation on Logout and protection against CSRF/brute force. Credential rotation/browser storage clearing/expiry may end the session. Never promise an unbounded irreversible login.
+- External GitHub renderer uses existing Authorization Bearer token independently of owner cookie. No change to media, auto-draft scheduling, publication permissions or other Cloudflare projects.

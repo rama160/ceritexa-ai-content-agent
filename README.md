@@ -1,4 +1,4 @@
-# Ceritexa AI Content Agent — v1.6.1
+# Ceritexa AI Content Agent — v1.7.0
 
 An isolated Cloudflare Worker and GitHub Actions project for:
 - **Ceritexa Studio** (Facebook Page, text/photo/comic)
@@ -242,3 +242,12 @@ Previous 1.5.0 directions below describe the historical four-shot renderer and a
 **Verification:** 33/33 isolated regression tests passed; both real E2E MP4 uploads verified in D1 audit; Cloudflare Worker 100% active; original 8 posts, six secrets, two Crons preserved. Future owner public platform posting still requires separate provider-level acceptance.
 
 **Free-tier note after live verification:** Internal production tests used seven storyboard image generations and consumed real AI usage, even though their temporary files were cleaned. Ceritexa limits new images to twelve storyboard scenes per UTC day as a local safety guard. For the remainder of 26 October 2026 UTC, two locally counted new scenes remain. Any larger real-user storyboard will pause and resume after the next UTC day rather than shortening the owner's story. This quota snapshot is date-specific; the actual provider free tier may impose additional limits.
+
+## v1.7.0 — New dashboard approved by owner (mobile PWA + desktop)
+The Ceritexa Studio dashboard now uses four pages: **Home** (review priorities, recent activity), **Draft** (Perlu Review, Disetujui, channel filters, full media and script review, edit, reject/regenerate, approve, schedule, storyboard and upload), **Analitik** (measured metrics and genuine no-data state), **Tren** (real collected trends and draft-idea actions). Rejected drafts are hidden from both active draft tabs but retained in D1 for agent learning. The old "Kesiapan Integrasi" panel has been removed from the owner interface.
+
+**Login once, stay connected:** Use the same existing Admin Token ONCE when opening the new dashboard. It is exchanged with the same isolated Worker for a revocable cookie-based session. Refreshing the page or opening the installed app after closing it keeps access while the cookie is valid. Press **Logout** when you want to disconnect. The 365-day cookie renews near expiration; rotation of ADMIN_TOKEN, expiration, or clearing browser/app site data will end the session. The token is not saved in localStorage/sessionStorage. No new username, OAuth app, or subscription is needed.
+
+The original GitHub Actions renderer uses its existing CERITEXA_ADMIN_TOKEN Bearer header and is not affected by the dashboard session. Stored draft/post/media data, publication OFF, Cloudflare AI, KV, D1, and Cron remain untouched. Only dedicated Worker and additive D1 session tables were changed.
+
+**Deployment scope:** ceritexa-content-agent (100% latest Worker); six original Cloudflare secrets preserved, two Crons intact, ALLOW_PUBLICATION=false. 36/36 in-process JS regression tests pass. Testing owner login with a real phone/browser remains the last user acceptance check.

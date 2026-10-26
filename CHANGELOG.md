@@ -1,4 +1,10 @@
 # CHANGELOG
+## 1.7.1 — 2026-10-26
+- Hardened owner-approved Ceritexa v3 PWA persistent sessions: temporary offline/server failure displays a dedicated reconnect overlay, manual retry and automatic online retry rather than incorrect login/logout claims.
+- Logout now requires a successful server response and authenticated:false before clearing the dashboard; failed logout keeps the prior session state and displays an error.
+- Updated existing tests/core.test.js for reconnect and logout contract; preserved all draft and review routes and backend. No duplicate modules or paid integrations.
+- No changes to the isolated Ceritexa Worker secrets, Cron jobs, D1 data, or ALLOW_PUBLICATION=false. Device-level acceptance remains pending.
+
 ## 1.7.0 — 2026-10-26
 - Applied owner-approved Ceritexa Studio v3 four-page responsive Home, Draft (Review/Disetujui), Analitik, Tren dashboard in existing src/index.js. Removed cluttered integration-readiness panel from UI; retained backend diagnostics. Rejected drafts are excluded from active lists without deleting D1 history or the existing AI regeneration loop.
 - Reconnected real D1 posts, trend research, real metric series/empty states, draft generation, edit, approve/reject, preview JPEG/MP4, dynamic storyboard, media upload, owner-only cinematic rerender and scheduling; no duplicated backend or paid services.

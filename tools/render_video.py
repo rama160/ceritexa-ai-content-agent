@@ -171,42 +171,87 @@ def synthesize_neural(story: str, channel: str, folder: Path):
 
 
 def get_storyboard_images(ident: str, folder: Path):
-    """Only accept four actual distinct original scenes, not the same single JPEG repeated."""
-    meta = request("/api/posts/" + ident + "/storyboard", b"{}", "application/json")
+    """Continue the story's OWN dynamic shot plan until all frames are ready.
+
+    Each Worker call generates a small bounded batch; under a free-tier quota pause
+    we stop and keep already-generated frames, never silently shorten the story.
+    """
+    endpoint = "/api/posts/" + ident + "/storyboard"
+    last = -1
+    meta = None
+    for attempt in range(26):
+        # Write-capable request also returns the plannedCount, partial asset metadata and quota.
+        meta = request(endpoint, b"{}", "application/json")
+        count, planned = int(meta.get("sceneCount", 0)), int(meta.get("plannedCount", 0))
+        if planned < 2 or planned > 24:
+            raise RuntimeError(f"Invalid narrative scene plan: {planned} shots.")
+        if meta.get("ready"):
+            break
+        if meta.get("dailyLimitReached"):
+            raise RuntimeError(
+                f"Story has {planned} planned scenes; only {count} generated. "
+                "Ceritexa free image quota was reached. Storyboard is retained; "
+                "retry another day, do not shorten the narrative."
+            )
+        if count == last:
+            raise RuntimeError(
+                f"Storyboard generation stalled at {count}/{planned}; "
+                "check Workers AI and scene generation audit."
+            )
+        last = count
+    else:
+        raise RuntimeError("Storyboard did not complete within 26 bounded requests")
+
     scenes = meta.get("scenes", [])
-    if not meta.get("ready") or len(scenes) != 4:
-        raise RuntimeError("Ceritexa storyboard must contain four completed visual scenes")
-    paths, hashes = [], set()
+    if not meta.get("ready") or len(scenes) != planned:
+        raise RuntimeError("Storyboard is not complete; MP4 creation blocked.")
+    files, seen = [], set()
     for index, scene in enumerate(scenes):
-        if scene.get("index") != index:
-            raise RuntimeError("Storyboard scene ordering is invalid")
-        data = request("/api/posts/" + ident + "/storyboard/" + str(index) + "/image")
+        if scene.get("index") != index or not str(scene.get("beat", "")).strip():
+            raise RuntimeError(f"Scene {index+1}/{planned} has invalid ordering or beat")
+        data = request(f"{endpoint}/{index}/image")
         if not isinstance(data, bytes) or not data.startswith(b"\xff\xd8") or len(data) < 1000:
-            raise RuntimeError(f"Storyboard scene {index+1} has no valid JPEG")
+            raise RuntimeError(f"Storyboard scene {index+1}/{planned} is not a usable JPEG")
         digest = hashlib.sha256(data).digest()
-        if digest in hashes:
-            raise RuntimeError("Two storyboard scenes are byte-for-byte identical")
-        hashes.add(digest)
+        if digest in seen:
+            raise RuntimeError(f"Storyboard contains identical illustrations: scene {index+1}")
+        seen.add(digest)
         path = folder / f"scene-{index:02}.jpg"
         path.write_bytes(data)
-        paths.append(path)
-    return paths
+        files.append(path)
+    return files, scenes
 
 
-def motion_graph(scene_count: int, voice_duration: float, subtitle_file: Path):
-    """Four animated-camera shots with per-shot fade transitions and synced subtitles.
-
-    FFmpeg concat+fade is more portable on ubuntu-latest than xfade with zoompan,
-    which may report frame_rate=1/0 on some FFmpeg versions.
+def scene_durations(scenes, voice_duration: float):
+    """Allocate screen time according to the amount of *spoken narrative* in each beat,
+    rather than dividing every story into an arbitrary number of equal-duration shots.
     """
-    if scene_count != 4 or not (8 < voice_duration <= 59):
-        raise ValueError("Motion edit requires 4 scenes and 8-59 seconds of narration")
-    segment = voice_duration / scene_count
-    fade = min(.32, segment / 8)
+    if not 8 < voice_duration <= 59 or not 2 <= len(scenes) <= 24:
+        raise ValueError("Narration or dynamic storyboard duration is out of range.")
+    lengths = [len(str(scene["beat"]).split()) for scene in scenes]
+    if not all(n > 0 for n in lengths):
+        raise ValueError("A scene has no story beat or voiceover")
+    total = sum(lengths)
+    durations = [voice_duration * n / total for n in lengths]
+    # Do not force many tiny clips: inconsistent narration pacing must be revised.
+    if any(t < 1.0 for t in durations):
+        raise ValueError("A story beat lasts under 1 second. Edit the script or scene plan.")
+    return durations
+
+
+def motion_graph(durations, subtitle_file: Path):
+    """Variable-count moving-camera shots with scene-relative fade and true narration time.
+
+    FFmpeg fade/concat avoids xfade timing instability, and no scene is fabricated to
+    fill a fixed four-shot video.
+    """
+    if not 2 <= len(durations) <= 24 or any(d <= 0 for d in durations):
+        raise ValueError("Invalid dynamically planned scene durations")
     filters = []
-    for i in range(scene_count):
+    for i, segment in enumerate(durations):
+        fade = min(.28, segment / 8)
         zoom = ["min(zoom+0.00075,1.13)", "min(zoom+0.00060,1.12)",
-                "min(zoom+0.00090,1.17)", "min(zoom+0.00055,1.11)"][i]
+                "min(zoom+0.00090,1.17)", "min(zoom+0.00055,1.11)"][i % 4]
         x = "iw/2-(iw/zoom/2)" if i % 2 == 0 else "max(0,iw/2-(iw/zoom/2))"
         y = "ih/2-(ih/zoom/2)"
         filters.append(
@@ -216,24 +261,26 @@ def motion_graph(scene_count: int, voice_duration: float, subtitle_file: Path):
             f"fade=t=in:st=0:d={fade:.3f},"
             f"fade=t=out:st={segment-fade:.3f}:d={fade:.3f}[v{i}]"
         )
-    filters.append("".join(f"[v{i}]" for i in range(scene_count))+
-                   f"concat=n={scene_count}:v=1:a=0[merged]")
+    filters.append("".join(f"[v{i}]" for i in range(len(durations)))+
+                   f"concat=n={len(durations)}:v=1:a=0[merged]")
     srt = str(subtitle_file).replace("'", "\\'")
     filters.append(
         f"[merged]subtitles='{srt}':"
         "force_style='FontName=DejaVu Sans,FontSize=16,Outline=2,Shadow=0,MarginV=115'[outv]"
     )
-    return ";".join(filters), segment
+    return ";".join(filters)
 
 
-def encode_motion_movie(images, voice, subtitles, duration, output: Path):
-    """4 different shots, pan/zoom and crossfades; fail if MP4 cannot be validated."""
-    graph, segment = motion_graph(len(images), duration, subtitles)
-    # 720 kbits video + 80 kbits audio targets <7.5MB in 59 seconds.
+def encode_motion_movie(images, scenes, voice, subtitles, duration, output: Path):
+    """Encode each unique scene at its narration-based duration and validate MP4."""
+    if len(images) != len(scenes):
+        raise ValueError("Image count must equal narrative scene count")
+    durations = scene_durations(scenes, duration)
+    graph = motion_graph(durations, subtitles)
     for rate in (720, 570):
         args = ["ffmpeg", "-y", "-loglevel", "error"]
-        for image in images:
-            args.extend(["-loop", "1", "-framerate", "24", "-t", f"{segment + .12:.3f}", "-i", str(image)])
+        for image, seconds in zip(images, durations):
+            args.extend(["-loop", "1", "-framerate", "24", "-t", f"{seconds + .12:.3f}", "-i", str(image)])
         args.extend(["-i", str(voice), "-filter_complex", graph,
                      "-map", "[outv]", "-map", f"{len(images)}:a:0",
                      "-c:v", "libx264", "-preset", "veryfast",
@@ -246,25 +293,25 @@ def encode_motion_movie(images, voice, subtitles, duration, output: Path):
         command(*args)
         if output.stat().st_size <= MAX_BYTES:
             return verify_mp4(output)
-    raise ValueError("Cinematic MP4 >7.5MB; reduce duration, do not upload")
+    raise ValueError("Cinematic MP4 >7.5MB; reduce story length but never silently skip scenes")
 
 
 def render(item, folder: Path):
     ident = item["id"]
     story = str(item["story"] or "").strip()
     if len(story) < 100 or len(story.split()) > 145:
-        raise ValueError("Naskah VIDEO harus 100+ karakter dan maksimum 145 kata.")
-    images = get_storyboard_images(ident, folder)
+        raise ValueError("Naskah VIDEO harus minimal 100 karakter dan maksimum 145 kata.")
+    images, scenes = get_storyboard_images(ident, folder)
     narration, captions, duration, voice, rate = synthesize_neural(story, item["channel"], folder)
     output = folder / "cinematic.mp4"
-    size = encode_motion_movie(images, narration, captions, duration, output)
+    size = encode_motion_movie(images, scenes, narration, captions, duration, output)
     uploaded = request("/api/posts/" + ident + "/media", output.read_bytes(), "video/mp4")
     if uploaded.get("id") != ident or not uploaded.get("media_key", "").endswith(".mp4"):
-        raise RuntimeError("Cloudflare did not acknowledge cinematic MP4 upload")
+        raise RuntimeError("Cloudflare did not acknowledge actual MP4 upload")
     key = verify_upload(ident)
     report(ident, "COMPLETED",
-           f"CINEMATIC_MOTION_COMIC; 4 scenes; neural={voice}; rate={rate}; "
-           f"MP4/D1 verified; {size} bytes")
+           f"CINEMATIC_MOTION_COMIC; scene_count={len(scenes)}; neural={voice}; "
+           f"rate={rate}; MP4/D1 verified; {size} bytes")
     return size, key
 
 
@@ -299,10 +346,17 @@ def main():
             assert eligible([{"format": "VIDEO", "channel": "panex", "state": "BLOCKED", "media_type": "image/jpeg", "risk_note": "VIDEO_RENDER_REQUIRED", "media_key": "images/1.jpg"}])
             assert not eligible([{"format": "VIDEO", "channel": "panex", "state": "PENDING_REVIEW", "media_type": "video/mp4", "risk_note": "", "media_key": "owner/1.mp4"}])
             assert voice_for_channel("panex") in ("id-ID-GadisNeural","id-ID-ArdiNeural")
-            graph, segment = motion_graph(4, 40.0, Path(temp) / "caption.srt")
-            assert graph.count("fade=t=in") == 4 and "zoompan=" in graph and "concat=n=4" in graph
-            assert 9.5 < segment < 10.5
-            assert "subtitles=" in graph
+            for n in (3, 6, 9, 12):
+                scenes = [{"beat": "Narasi konflik berubah menjadi harapan setiap adegan"} for _ in range(n)]
+                durations = scene_durations(scenes, 48.0)
+                graph = motion_graph(durations, Path(temp) / "caption.srt")
+                assert len(durations) == n
+                assert abs(sum(durations) - 48.0) < 0.001
+                assert graph.count("fade=t=in") == n and "zoompan=" in graph
+                assert "concat=n=" + str(n) in graph
+                assert "subtitles=" in graph
+            unequal = scene_durations([{"beat": "Pahlawan datang"},{"beat": "Namun ia harus menolong seisi kota dengan kekuatan baru"}],24)
+            assert unequal[1] > unequal[0]
 
         print("Renderer self-test PASS")
         return 0
@@ -323,7 +377,7 @@ def main():
         summary([f"❌ Cannot check Ceritexa drafts: {exc}"])
         return 1
 
-    print("Eligible cinematic Shorts:", len(candidates), "(strict 4-scene / neural mode)", flush=True)
+    print("Eligible narrative-adaptive Shorts:", len(candidates), "(variable scenes + neural narrator)", flush=True)
     if not candidates:
         summary(["ℹ️ No blocked JPEG-based YouTube drafts require MP4 rendering.",
                  "This is not evidence of a completed upload. Review each draft's media_type in the dashboard."])

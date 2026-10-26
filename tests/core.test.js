@@ -338,3 +338,63 @@ test('storyboard GET and renderer assets need an Admin bearer',async()=>{
   {method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}),env);
  assert.equal(p.status,401);
 });
+
+test('owner cinematic upgrade preserves original MP4 while returning draft to BLOCKED',async()=>{
+ const core=readFileSync(new URL('../src/core.js',import.meta.url),'utf8').replace(/^export /gm,'');
+ const idx=readFileSync(new URL('../src/index.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/,'').replace(/^export /gm,'').replace('default{','const __worker={');
+ const app=new Function(core+'\n'+idx+'\nreturn __worker;')();
+ const id='11111111-1111-4111-8111-111111111111',oldKey='owner/archive/old-video.mp4',picture='images/cover-original.jpg';
+ const post={id,channel:'panex',format:'VIDEO',state:'PENDING_REVIEW',media_type:'video/mp4',media_key:oldKey};
+ const mediaObjects=new Set([picture,oldKey]),events=[];
+ const env={ADMIN_TOKEN:'CeritexaTestSuperLongAdminToken00001',MEDIA:{get:async key=>mediaObjects.has(key)?{body:'untouched'}:null},
+  DB:{prepare(sql){return {bind(...args){return {
+   first:async()=>sql.includes('FROM draft_reviews')?{preview_media_key:picture}:post,
+   all:async()=>({results:[]}),
+   run:async()=>{if(sql.startsWith('INSERT INTO audit'))events.push(args);if(sql.startsWith('UPDATE posts')){post.media_key=args[0];post.state='BLOCKED';post.media_type='image/jpeg';}return {meta:{changes:1}};}
+  }}}}}
+ };
+ const req=()=>new Request('https://ceritexa.test/api/posts/'+id+'/upgrade-video',{method:'POST',headers:{Authorization:'Bearer '+env.ADMIN_TOKEN,'Content-Type':'application/json'},body:'{}'});
+ const response=await app.fetch(req(),env),json=await response.json();
+ assert.equal(response.status,200);
+ assert.equal(json.existingVideoPreserved,true);
+ assert.equal(post.state,'BLOCKED');
+ assert.equal(post.media_key,picture);
+ assert.equal(post.media_type,'image/jpeg');
+ assert.ok(mediaObjects.has(oldKey));
+ assert.ok(events.length>0);
+ assert.equal((await app.fetch(req(),env)).status,400);
+});
+test('four storyboard image assets are idempotent across retries',async()=>{
+ const core=readFileSync(new URL('../src/core.js',import.meta.url),'utf8').replace(/^export /gm,'');
+ const idx=readFileSync(new URL('../src/index.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/,'').replace(/^export /gm,'').replace('default{','const __worker={');
+ const app=new Function(core+'\n'+idx+'\nreturn __worker;')();
+ const id='11111111-1111-4111-8111-111111111111';
+ const script=Array.from({length:90},(_,i)=>['Seorang','pemuda','berani','mencari','rumah','di','tengah','hutan'][i%8]).join(' ');
+ const post={id,channel:'heros',format:'VIDEO',state:'BLOCKED',media_type:'image/jpeg',media_key:'images/cover.jpg',story:script,image_prompt:'Original gold-coated hero'};
+ const sceneRows=[],logs=[],kv=new Map([['images/cover.jpg',new Uint8Array(1500)]]);
+ let generated=0;
+ const media={get:async key=>kv.has(key)?{body:kv.get(key)}:null,put:async(key,value)=>kv.set(key,value)};
+ const payload=Buffer.alloc(1600,90).toString('base64');
+ const env={ADMIN_TOKEN:'CeritexaTestSuperLongAdminToken00001',MEDIA:media,AI:{run:async()=>{generated++;return {image:payload};}},
+  DB:{prepare(sql){return {bind(...args){return {
+   first:async()=>sql.includes('SELECT COUNT(*) n FROM audit')?{n:logs.filter(x=>x[0]==='STORYBOARD_SCENE_CREATED').length}:post,
+   all:async()=>({results:sceneRows.slice().sort((a,b)=>a.scene_index-b.scene_index)}),
+   run:async()=>{if(sql.startsWith('INSERT INTO audit')){logs.push(args);return {meta:{changes:1}};}
+     if(sql.startsWith('INSERT OR IGNORE INTO video_storyboard')){if(!sceneRows.some(x=>x.scene_index===args[1]))sceneRows.push({scene_index:args[1],media_key:args[2],beat:args[3],prompt:args[4]});return {meta:{changes:1}};}
+     throw Error('Unexpected test SQL '+sql.slice(0,75));}
+  }}}}}
+ };
+ const req=()=>new Request('https://ceritexa.test/api/posts/'+id+'/storyboard',{method:'POST',headers:{Authorization:'Bearer '+env.ADMIN_TOKEN,'Content-Type':'application/json'},body:'{}'});
+ const first=await app.fetch(req(),env);const payload1=await first.json();
+ assert.equal(first.status,200);
+ assert.equal(payload1.sceneCount,4);
+ assert.equal(payload1.ready,true);
+ assert.equal(payload1.characterMotionGenerated,false);
+ assert.equal(generated,3);
+ assert.equal(sceneRows.length,4);
+ const again=await app.fetch(req(),env);
+ assert.equal(again.status,200);assert.equal(generated,3);assert.equal(sceneRows.length,4);
+ const mediaRes=await app.fetch(new Request('https://ceritexa.test/api/posts/'+id+'/storyboard/2/image',{headers:{Authorization:'Bearer '+env.ADMIN_TOKEN}}),env);
+ assert.equal(mediaRes.status,200);
+ assert.match(mediaRes.headers.get('Content-Type'),/image\/jpeg/);
+});

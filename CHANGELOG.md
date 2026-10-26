@@ -1,4 +1,14 @@
 # CHANGELOG
+## 1.3.0 — 2026-10-26
+- Embedded actual owner-supplied Ceritexa logo in existing dashboard header and review-card fallback; no new duplicate branding module.
+- Added an AI cover generation attempt to all new draft formats, including Facebook TEXT (review only); old records can create/replace a private review image using a shared image helper and owner button.
+- Added reject action with controlled reason/note form in the same dashboard. Original draft remains REJECTED, reason/note stored with audit, regenerated child maintains same channel/topic/format and parent linkage.
+- Limited automatic regeneration to three revisions across ancestry; checks distinct title/caption/story, refuses overly similar copy, and exposes explicit retry after generation failure (no infinite retries).
+- Added D1 migration 0002_review_feedback.sql, idempotent draft_reviews table with parent_id, revision_depth, regen_state, preview_media_key and error tracking. Applied against isolated Ceritexa D1; 6 existing posts had review metadata backfilled.
+- Enhanced existing tests/core.test.js with review validation, similarity, migration presence, brand/preview syntax, and simulated HTTP reject-to-regenerate flow. Tool sandbox observed 15 pure checks passing and a controlled in-memory Worker HTTP simulation passing. Actual GitHub Action result is not observed.
+- Successfully deployed to Ceritexa Worker only. Cloudflare API GET verified logo, preview, reject and regeneration handlers in live script and latest version at 100% traffic. Preserved 6 secrets for admin, Facebook, Google; ALLOW_PUBLICATION remains false.
+- Public provider posting, browser owner flow and GitHub runner E2E remain pending. No unrelated Worker, repo, account, content or previous draft was deleted or modified.
+
 ## 1.2.2 — 2026-10-26
 - Verified actual Ceritexa Worker draft generation through Cloudflare D1 audit and posts table: new Facebook TEXT and Heros VIDEO drafts; Heros awaits MP4 renderer, zero public-posting claim.
 - Owner screenshot confirmed Facebook Page Ceritexa Studio, Panex and Heros Real Life all verified=true; no credential values shown or modified.

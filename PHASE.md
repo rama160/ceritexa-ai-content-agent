@@ -1,4 +1,4 @@
-# PHASE — Ceritexa AI Content Agent v1.3.0
+# PHASE — Ceritexa AI Content Agent v1.4.0
 Updated: 2026-10-25 (WITA). Source of truth: test evidence, not feature claims.
 
 | Phase | Status | Verifikasi |
@@ -62,7 +62,7 @@ Owner reports first three setup tasks completed. Remaining Facebook and two YouT
 - Seven pure in-isolate editorial checks and JavaScript syntax verification passed against current GitHub code. Full Node GitHub CI and browser-level upload checks still require explicit run/observation.
 - Updated Worker deployed successfully to isolated ceritexa-content-agent through Cloudflare API HTTP 200; latest deployment 100% traffic. Six encrypted secret bindings preserved, all Facebook and YouTube channel ID variables preserved, two Crons unchanged, and ALLOW_PUBLICATION=false.
 
-## v1.3.0 — Owner-requested visual review and rejection, 26 Oct 2026
+## v1.4.0 — Owner-requested visual review and rejection, 26 Oct 2026
 
 | Feature | Evidence-based state |
 |---|---|
@@ -83,3 +83,10 @@ Owner reports first three setup tasks completed. Remaining Facebook and two YouT
 - For historic drafts without illustration use Buat gambar review AI, then view private thumbnail.
 - Observe GitHub Actions tests and video renderer separately; not represented as successfully run by this release.
 - ALLOW_PUBLICATION remains false throughout.
+
+## v1.4.0 — Ceritexa Dashboard install on Android, 26 October 2026
+- Implemented Progressive Web App on EXISTING ceritexa-content-agent Worker. Same GitHub repo, OAuth credentials, D1 database, media KV, original logo and review workflow. No separate Android/Flutter project, domain purchase, APK or Play Store release.
+- New public routes: /manifest.webmanifest, /sw.js, /icon-192.svg, /icon-512.svg, /icon-96.jpg. Manifest name='Ceritexa AI Content Agent', short_name='Ceritexa', start_url and scope '/', standalone display, portrait theme. Chrome install trigger and manual Add to Home screen fallback in dashboard.
+- Secure service worker caches ONLY public shell, icons and manifest; NEVER API, drafts, private images, tokens, bearer headers or cross-origin requests. Offline UI shell does not imply offline AI, approvals or media functionality. Existing admin token memory-only; relogin required on app relaunch.
+- Worker/router syntax verified, simulated GET public routes return HTTP 200 with declared MIME and unauthenticated /api/posts returns 503 without server secret. Browser WebAPK prompt/install result has not been externally observed; owner acceptance remains required.
+- ALLOW_PUBLICATION=false stays fixed; all Facebook and YouTube secrets untouched. Cloudflare management deployment verification should be recorded after upload.

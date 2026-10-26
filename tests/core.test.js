@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {CHANNELS,validate,detectRisk,parseRss,score,parseAI,compareToken,gate,readiness,selectDraftTopic,EDITORIAL_TOPICS,validateRejection,creativeSimilarity,MAX_REVISION_DEPTH,REJECTION_REASONS} from '../src/core.js';
+import {CHANNELS,validate,detectRisk,parseRss,score,parseAI,compareToken,gate,readiness,selectDraftTopic,EDITORIAL_TOPICS,validateRejection,creativeSimilarity,MAX_REVISION_DEPTH,REJECTION_REASONS,sceneBeats,scenePrompt,CINEMATIC_SCENE_COUNT} from '../src/core.js';
 test('kanal terisolasi',()=>{assert.match(CHANNELS.panex.topic,/keluarga/);assert.match(CHANNELS.heros.topic,/superhero/);assert.throws(()=>validate('panex','TEXT'));assert.equal(validate('facebook','PHOTO'),true)});
 test('mengurai RSS',()=>{const x='<item><title><![CDATA[Drama &amp; Keluarga]]></title><link>https://example.org/a</link></item>';assert.equal(parseRss(x)[0].topic,'Drama & Keluarga')});
 test('menolak IP eksternal',()=>{assert.ok(detectRisk('Batman'));assert.equal(score('Marvel hero','heros'),0)});
@@ -282,4 +282,59 @@ test('renderer failures are explicit and live card distinguishes MP4 from JPEG',
  assert.match(workflow,/python tools\/render_video\.py --self-test/);
  assert.match(workflow,/Validate Ceritexa GitHub secret/);
  assert.match(workflow,/Render and VERIFY MP4 upload/);
+});
+
+test('four original cinematic scenes from one story and brand-consistent prompts',()=>{
+ const story=Array.from({length:120},(_,i)=>['Seorang','pemuda','menemukan','cahaya','misterius','di','desa','kemudian','menolong','keluarganya'][i%10]).join(' ');
+ const beats=sceneBeats(story);
+ assert.equal(CINEMATIC_SCENE_COUNT,4);
+ assert.equal(beats.length,4);
+ assert.ok(beats.every((b,i)=>b.index===i&&b.beat.length>70));
+ assert.equal(beats.map(x=>x.beat).join(' ').replace(/\s+/g,' '),story);
+ const a=scenePrompt({channel:'panex',image_prompt:'Indonesian teenager with blue shirt'},beats[1]);
+ const b=scenePrompt({channel:'heros',image_prompt:'Original blue-cloaked guardian'},beats[2]);
+ assert.match(a,/realistic Indonesian/);
+ assert.match(b,/original superhero/);
+ assert.match(b,/NO lettering/);
+ assert.notEqual(a,b);
+ assert.throws(()=>scenePrompt({channel:'facebook'},beats[0]));
+ assert.throws(()=>sceneBeats('too short'));
+});
+test('storyboard routes and opt-in video upgrade never auto-publish',()=>{
+ const src=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
+ const migration=readFileSync(new URL('../migrations/0003_video_storyboard.sql',import.meta.url),'utf8');
+ const py=readFileSync(new URL('../tools/render_video.py',import.meta.url),'utf8');
+ const wf=readFileSync(new URL('../.github/workflows/render-video.yml',import.meta.url),'utf8');
+ assert.match(src,/async function storyboard\(/);
+ assert.match(src,/async function storyboardImage\(/);
+ assert.match(src,/async function upgradeVideo\(/);
+ assert.match(src,/data-upgradevideo/);
+ assert.match(src,/data-storyboard/);
+ assert.match(src,/existingVideoPreserved:true/);
+ assert.match(migration,/CREATE TABLE IF NOT EXISTS video_storyboard/);
+ assert.match(migration,/PRIMARY KEY\(post_id, scene_index\)/);
+ assert.match(py,/def synthesize_neural/);
+ assert.match(py,/def get_storyboard_images/);
+ assert.match(py,/def motion_graph/);
+ assert.match(py,/concat=n=/);
+ assert.match(py,/fade=t=in/);
+ assert.match(py,/no.*robotic/i);
+ assert.ok(!py.includes('espeak-ng'));
+ assert.match(wf,/edge-tts/);
+ assert.ok(!wf.includes('espeak-ng'));
+ assert.match(wf,/CERITEXA_VOICE_PANEX/);
+});
+test('storyboard GET and renderer assets need an Admin bearer',async()=>{
+ const core=readFileSync(new URL('../src/core.js',import.meta.url),'utf8').replace(/^export /gm,'');
+ const idx=readFileSync(new URL('../src/index.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/,'').replace(/^export /gm,'').replace('default{','const __worker={');
+ const app=new Function(core+'\n'+idx+'\nreturn __worker;')();
+ const id='11111111-1111-4111-8111-111111111111';
+ const env={ADMIN_TOKEN:'TEST_ADMIN_KEY_UNSAFE_FOR_PROD_NEVER_REAL',DB:{prepare:()=>{throw Error('Unauthorized endpoint invoked database')}}};
+ for(const path of ['/api/posts/'+id+'/storyboard','/api/posts/'+id+'/storyboard/0/image']){
+  const r=await app.fetch(new Request('https://ceritexa.test'+path),env);
+  assert.equal(r.status,401);
+ }
+ const p=await app.fetch(new Request('https://ceritexa.test/api/posts/'+id+'/upgrade-video',
+  {method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}),env);
+ assert.equal(p.status,401);
 });

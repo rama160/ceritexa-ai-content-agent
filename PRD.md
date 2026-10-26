@@ -1,4 +1,4 @@
-# PRD — Ceritexa AI Content Agent 1.6.0
+# PRD — Ceritexa AI Content Agent 1.6.1
 Tanggal: 25 Oktober 2026 | Status: IMPLEMENTASI BERTAHAP
 
 ## Produk, pemilik dan batasan
@@ -109,3 +109,9 @@ Tests + build green, Cloudflare bound and deploy, admin denied without token, po
 - The 12-extra-images-per-day free resource guard is independent from shot planning. If a storyboard needs more frames, show incomplete progress and permit continuation instead of automatically reducing the story.
 - Re-render of an older MP4 requires the owner and must preserve existing object bytes. All new MP4 files still require explicit review, no public posting.
 - Acceptance: distinct Panex/Heros scripts create different counts; narrative is fully preserved; historical D1 rows survive migration; FFmpeg valid 6- and 10-scene H264/AAC output verified; private access maintained.
+
+## v1.6.1 — Non-destructive video production and real internal acceptance
+- Rendering a replacement video must create a fresh versioned private object. No overwrite or deletion of an earlier MP4 that the owner had reviewed. A delayed upload cannot change a previously approved/scheduled/published draft back to review.
+- Progressive storyboard generation from PWA runs in bounded batches via one owner click, with an explicit incomplete/quota status rather than truncating the planned count.
+- Before any live render, the GitHub workflow exercises the same FFmpeg H264/AAC camera-motion/subtitle encoder with distinct synthetic scenes and no credentials or public provider calls.
+- Internal acceptance evidence: GitHub Actions uploaded an eight-scene Panex MP4 using a neural Indonesian narrator to the isolated Ceritexa D1/KV, with audit RENDER_COMPLETED; all user-owned legacy drafts remain untouched and public posting stays OFF.

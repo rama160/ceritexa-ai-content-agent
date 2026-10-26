@@ -7,6 +7,90 @@ const list=async(e,q,...p)=>(await db(e,q,...p).all()).results||[];
 const run=async(e,q,...p)=>db(e,q,...p).run();
 async function audit(e,action,id='',detail=''){await run(e,'INSERT INTO audit(id,action,entity_id,detail,at) VALUES(?,?,?,?,?)',uuid(),action,id,String(detail).slice(0,300),utc());}
 async function isPaused(e){return (await row(e,"SELECT value FROM settings WHERE key='paused'"))?.value!=='false';}
+
+// Dedicated owner-login session; do not persist the ADMIN_TOKEN in browser storage.
+// The session cookie is opaque, HttpOnly, Secure, SameSite=Strict and revocable.
+const SESSION_COOKIE='__Host-ceritexa_session',SESSION_SECONDS=365*24*3600;
+const sessionNow=()=>Math.floor(Date.now()/1000);
+const digestHex=async value=>{
+ const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value));
+ return Array.from(new Uint8Array(buf),b=>b.toString(16).padStart(2,'0')).join('');
+};
+const cookieValue=(req,name)=>{
+ const str=req.headers.get('Cookie')||'';
+ const entry=str.split(';').map(x=>x.trim()).find(x=>x.startsWith(name+'='));
+ return entry?entry.slice(name.length+1):'';
+};
+const ownerCookie=(value,age)=>SESSION_COOKIE+'='+value+'; Path=/; Max-Age='+age+'; HttpOnly; Secure; SameSite=Strict';
+const ownerJson=(data,status=200,sessionCookie=null)=>{
+ const h={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
+ if(sessionCookie)h['Set-Cookie']=sessionCookie;
+ return Response.json(data,{status,headers:h});
+};
+const newOpaqueToken=()=>{
+ const bytes=crypto.getRandomValues(new Uint8Array(32));
+ return Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+};
+const sessionClient=async(req,e)=>digestHex((req.headers.get('CF-Connecting-IP')||'unknown-client')+':'+e.ADMIN_TOKEN);
+async function loginOwner(req,e){
+ if(!e.ADMIN_TOKEN||!e.DB)return ownerJson({error:'Layanan autentikasi belum siap'},503);
+ const length=Number(req.headers.get('Content-Length')||0);
+ if(length>2048)return ownerJson({error:'Permintaan terlalu besar'},413);
+ const client=await sessionClient(req,e),now=sessionNow();
+ const rate=await row(e,'SELECT failed_attempts,reset_at,locked_until FROM admin_login_limits WHERE client_hash=?',client);
+ if(Number(rate?.locked_until||0)>now)return ownerJson({error:'Terlalu banyak percobaan. Coba lagi nanti.'},429);
+ let input={};
+ try{input=await req.json()}catch{return ownerJson({error:'Token diperlukan'},400)}
+ const supplied=typeof input.token==='string'?input.token:'';
+ if(supplied.length>500||!compareToken(supplied,e.ADMIN_TOKEN)){
+  const validWindow=Number(rate?.reset_at||0)>now;
+  const failures=(validWindow?Number(rate?.failed_attempts||0):0)+1;
+  const lock=failures>=8?now+15*60:0;
+  await run(e,'INSERT INTO admin_login_limits(client_hash,failed_attempts,reset_at,locked_until) VALUES(?,?,?,?) ON CONFLICT(client_hash) DO UPDATE SET failed_attempts=excluded.failed_attempts,reset_at=excluded.reset_at,locked_until=excluded.locked_until',
+    client,failures,validWindow?Number(rate.reset_at):now+15*60,lock);
+  return ownerJson({error:lock?'Terlalu banyak percobaan. Coba lagi nanti.':'Admin Token tidak sesuai'},lock?429:401);
+ }
+ await run(e,'DELETE FROM admin_login_limits WHERE client_hash=?',client);
+ const token=newOpaqueToken(),hash=await digestHex(token),expires=now+SESSION_SECONDS;
+ await run(e,'INSERT INTO admin_sessions(session_hash,created_at,expires_at,last_seen) VALUES(?,?,?,?)',hash,now,expires,now);
+ await audit(e,'OWNER_LOGIN','','Owner session started using secure cookie');
+ return ownerJson({authenticated:true,session:'active'},200,ownerCookie(token,SESSION_SECONDS));
+}
+async function readOwnerSession(req,e){
+ const token=cookieValue(req,SESSION_COOKIE);
+ if(!/^[a-f0-9]{64}$/.test(token)||!e.DB)return null;
+ const hash=await digestHex(token);
+ const data=await row(e,'SELECT session_hash,expires_at,last_seen FROM admin_sessions WHERE session_hash=?',hash);
+ const now=sessionNow();
+ if(!data||Number(data.expires_at)<=now)return null;
+ return {token,hash,expires:Number(data.expires_at),lastSeen:Number(data.last_seen)};
+}
+async function sessionStatus(req,e){
+ if(!e.ADMIN_TOKEN||!e.DB)return ownerJson({authenticated:false});
+ const session=await readOwnerSession(req,e);
+ if(!session)return ownerJson({authenticated:false});
+ const now=sessionNow();
+ if(session.expires-now<90*24*3600){
+  await run(e,'UPDATE admin_sessions SET expires_at=?,last_seen=? WHERE session_hash=?',
+    now+SESSION_SECONDS,now,session.hash);
+  return ownerJson({authenticated:true,session:'active'},200,ownerCookie(session.token,SESSION_SECONDS));
+ }
+ return ownerJson({authenticated:true,session:'active'});
+}
+async function logoutOwner(req,e){
+ const session=await readOwnerSession(req,e);
+ if(session)await run(e,'DELETE FROM admin_sessions WHERE session_hash=?',session.hash);
+ if(e.DB)await audit(e,'OWNER_LOGOUT','','Owner signed out');
+ return ownerJson({authenticated:false},200,ownerCookie('',0));
+}
+function sameOriginMutation(req){
+ const origin=req.headers.get('Origin');
+ if(origin){
+  try{if(new URL(origin).origin!==new URL(req.url).origin)return false}catch{return false}
+ }
+ return req.headers.get('X-Ceritexa-Request')==='dashboard';
+}
+
 const seeds=['Perjuangan ibu membesarkan keluarga','Persahabatan yang diuji oleh rahasia','Pilihan berat seorang pahlawan orisinal','Warung keluarga menghadapi penutupan','Misteri fiksi tetangga baru'];
 const mtext='@cf/google/gemma-4-26b-a4b-it'; // JSON/Indonesian schema verified against Cloudflare Workers AI
 const mimage='@cf/black-forest-labs/flux-1-schnell';
@@ -743,10 +827,22 @@ async function handle(request,e){
  if(p==='/')return new Response(page,{headers:{'Content-Type':'text/html; charset=utf-8','Content-Security-Policy':"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self'; manifest-src 'self'; base-uri 'none'; frame-ancestors 'none'",'X-Content-Type-Options':'nosniff','Cache-Control':'no-store'}});
  if(p==='/api/health')return answer({ok:true,service:'ceritexa-content-agent',isolated:true,d1:!!e.DB,r2:!!e.MEDIAKV||!!e.MEDIA,mediaBackend:e.MEDIAKV?'KV':e.MEDIA?'R2':null,ai:!!e.AI,publishingConfigured:e.ALLOW_PUBLICATION==='true'});
  if(!p.startsWith('/api/'))return answer({error:'Not found'},404);
- const auth=request.headers.get('Authorization')||'';
+ if(method==='POST'&&p==='/api/auth/login')return loginOwner(request,e);
+ if(method==='GET'&&p==='/api/auth/me')return sessionStatus(request,e);
+ if(method==='POST'&&p==='/api/auth/logout'){
+  if(!sameOriginMutation(request))return answer({error:'Cross-site request not permitted'},403);
+  return logoutOwner(request,e);
+ }
  if(!e.ADMIN_TOKEN)return answer({error:'ADMIN_TOKEN not configured'},503);
- if(!compareToken(auth.startsWith('Bearer ')?auth.slice(7):'',e.ADMIN_TOKEN))return answer({error:'Unauthorized'},401);
  if(!e.DB)return answer({error:'D1 missing'},503);
+ const bearer=request.headers.get('Authorization')||'';
+ const bearerOk=bearer.startsWith('Bearer ')&&compareToken(bearer.slice(7),e.ADMIN_TOKEN);
+ const ownerSession=bearerOk?null:await readOwnerSession(request,e);
+ if(!bearerOk&&!ownerSession)return answer({error:'Unauthorized'},401);
+ // Browser-cookie sessions cannot be used for cross-site POSTs. GitHub Actions
+ // continues using the existing Authorization Bearer contract unchanged.
+ if(!bearerOk&&!['GET','HEAD'].includes(method)&&!sameOriginMutation(request))
+  return answer({error:'Cross-site request not permitted'},403);
  if(method==='GET'&&p==='/api/readiness')return answer(readiness(e,await isPaused(e)));
  if(method==='GET'&&p==='/api/connections/verify')return answer(await verifyConnections(e));
  if(method==='GET'&&p==='/api/status')return answer({paused:await isPaused(e),publicationEnabled:e.ALLOW_PUBLICATION==='true',mediaReady:!!e.MEDIA,mediaBackend:e.MEDIAKV?'KV':e.MEDIA?'R2':null,aiReady:!!e.AI,facebookReady:!!(e.FB_PAGE_ID&&e.FB_PAGE_ACCESS_TOKEN),panexReady:!!(e.YT_REFRESH_TOKEN_PANEX&&e.YT_CHANNEL_ID_PANEX),herosReady:!!(e.YT_REFRESH_TOKEN_HEROS&&e.YT_CHANNEL_ID_HEROS),channels:CHANNELS});

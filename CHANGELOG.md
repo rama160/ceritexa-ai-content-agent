@@ -92,3 +92,8 @@
 - Documented candidate homepage/policy/terms URLs and Google Auth Platform field names in existing README; Pages activation and HTTP confirmation remain owner tasks.
 - Clarified Google Authorized domains and Search Console ownership verification caveat; do not infer that public pages or Google production review have been approved.
 - Generated compact 120x120 PNG copy of the Ceritexa logo in the conversation for upload under Google's 1MB requirement. No binary credential or secret committed.
+
+### v1.4.0 deployment verification
+- Cloudflare returned HTTP 200 on isolated Ceritexa Worker upload and management GET confirmed the 1.4.0 PWA code on latest 100% deployment.
+- 19 core/regression tests passed in a local JS-compatible harness, including unauthenticated PWA routes and protected data boundaries. Android install prompt and device-specific launcher behavior still need owner acceptance.
+- Existing admin, Facebook and two YouTube refresh token secrets preserved without revealing their values. Two Cron triggers unchanged, ALLOW_PUBLICATION remained false.

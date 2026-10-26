@@ -1,4 +1,4 @@
-# PRD — Ceritexa AI Content Agent 1.2.2
+# PRD — Ceritexa AI Content Agent 1.3.0
 Tanggal: 25 Oktober 2026 | Status: IMPLEMENTASI BERTAHAP
 
 ## Produk, pemilik dan batasan
@@ -54,14 +54,14 @@ Video otomatis lengkap, integrasi produksi, dan analytics resmi belum dianggap s
 ## Acceptance
 Tests + build green, Cloudflare bound and deploy, admin denied without token, post drafts created, rights approved, one FB publish test, one YouTube private test per channel, analytics fetched, Pause All works, no repeated posting.
 
-## v1.2.2 — Implemented pilot additions and limits
+## v1.3.0 — Implemented pilot additions and limits
 - Original AI video draft generates a still image; GitHub Actions renderer composes image, offline Indonesian speech and subtitles into a <8MB MP4. The owner still reviews before approval. Actions requires CERITEXA_ADMIN_TOKEN GitHub secret and can have schedule delays.
 - Adaptive editorial planning evaluates actual post engagement per distinct channel and suggests top-performing subject only after >=3 published posts with recorded metrics. It cannot autonomously change brand, buy services, change OAuth scopes or delete posts.
 - The automated daily draft rotation is split between Ceritexa Facebook TEXT/PHOTO/COMIC, Panex VIDEO and Heros VIDEO, with hard monthly quota. Deployed Cloudflare setting now allows daily draft-only rotation; public publication remains disabled and owner must explicitly approve every item.
 - Provider OAuth integrations, Facebook Reels uploader, real YouTube public posting, final analytics and monetization remain external acceptance gates. Never represent them as verified or guaranteed.
 - R2 unavailable: KV file fallback is used only for pilot media <=8MB, not large-scale production.
 
-## v1.2.2 acceptance addendum
+## v1.3.0 acceptance addendum
 - Dashboard exposes readiness of bindings/credentials separately from live connection identity checks. Readiness never reveals secrets or claims untested authorization.
 - Facebook Page ID and returned Page name must represent Ceritexa Studio; disallow posting to other Pages such as Nusa Penida Experiences even if a token is mistakenly configured.
 - YouTube must verify distinct OAuth channel IDs for Panex and Heros, and upload PRIVATE in pilot.
@@ -73,3 +73,11 @@ Tests + build green, Cloudflare bound and deploy, admin denied without token, po
 - Priorities: explicit owner topic > channel-aligned strategy suggestion supported by metrics > channel-relevant RSS topic > channel-specific original story seed.
 - Existing off-topic drafts are not deleted or automatically published; owner may edit or reject them in pending review. For new drafts, use the updated policy.
 - Acceptance proof: Cloudflare D1 audit contains DRAFT_CREATED for real Worker calls; public posting remains disabled and YouTube VIDEO requires human review and MP4 rendering.
+
+## v1.3.0 owner visual review and feedback requirements
+- Every draft review card must show a visual: private AI artwork, owner-uploaded image, or the actual Ceritexa logo as fallback. Even TEXT drafts create AI artwork for REVIEW (Facebook TEXT publishing remains text only).
+- Owner can generate or replace a missing image through a protected action; existing drafts do not have to be discarded. Manual image replacements are capped at 8 per day.
+- Reject any pending/blocking draft with one of seven predefined reasons plus optional written feedback. Original remains REJECTED with audit and review metadata; do not delete it.
+- Agent produces a new distinct child draft for the SAME channel, format and topic, based on the prior story, the reason and owner notes. It must avoid identical titles/captions and high lexical similarity; subjective improvement still requires human judgment.
+- Maximum 3 automated regenerations per ancestry chain. On failure, visible FAILED state and explicit retry only, with no automatic infinite loop or duplicate children.
+- Draft remains pending approval and cannot publish unless explicit human approval, schedule and separate production publishing flag. No changes to Facebook/YouTube secrets, Nusa Penida Experiences, Finchat or Spenva.

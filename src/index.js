@@ -1,4 +1,4 @@
-import {CHANNELS,validate,detectRisk,parseRss,score,parseAI,compareToken,gate,readiness,selectDraftTopic} from './core.js';
+import {CHANNELS,validate,detectRisk,parseRss,score,parseAI,compareToken,gate,readiness,selectDraftTopic,validateRejection,creativeSimilarity,MAX_REVISION_DEPTH} from './core.js';
 const utc=()=>new Date().toISOString(),uuid=()=>crypto.randomUUID();
 const answer=(v,c=200)=>Response.json(v,{status:c,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 const db=(env,q,...params)=>env.DB.prepare(q).bind(...params);
@@ -10,15 +10,16 @@ async function isPaused(e){return (await row(e,"SELECT value FROM settings WHERE
 const seeds=['Perjuangan ibu membesarkan keluarga','Persahabatan yang diuji oleh rahasia','Pilihan berat seorang pahlawan orisinal','Warung keluarga menghadapi penutupan','Misteri fiksi tetangga baru'];
 const mtext='@cf/google/gemma-4-26b-a4b-it'; // JSON/Indonesian schema verified against Cloudflare Workers AI
 const mimage='@cf/black-forest-labs/flux-1-schnell';
-function aiPrompt(channel,format,topic){return [
- 'You are a professional original fiction writer for '+CHANNELS[channel].label+'.',
- 'Audience Indonesia. Story theme: '+CHANNELS[channel].topic+'. Trend inspiration (not copy): '+topic+'. Format '+format+'.',
- 'Create a distinctive original fictional story with protagonist, conflict, surprise, human warmth, clear payoff, vivid but authentic Indonesian dialogue.',
- 'No named real people, Marvel/DC franchises, copied scripts, disinformation, medical claims or manipulative engagement bait.',
- 'Return ONLY valid JSON with four string keys: title, story, caption, imagePrompt.',
- format==='VIDEO' ? 'VIDEO SHORTS: write one COMPLETE standalone voice-over script of 95 to 125 Indonesian words (strong hook, climax, ending) for a 35-55 second video, not a multi-scene numbered outline.' : 'Write a complete original story of 150 to 220 Indonesian words. caption ready for publishing without hashtag spam.',
- 'imagePrompt in English, cinematic vertical 9:16, no text and no recognizable franchise characters.'
- ].join('\n');}
+function aiPrompt(channel,format,topic,feedback=''){return [
+ 'You are an expert original fiction writer for '+CHANNELS[channel].label+'.',
+ 'Indonesian audience. Channel identity: '+CHANNELS[channel].topic+'. Original topic: '+topic+'. Format '+format+'.',
+ 'Build one coherent fictional story with a surprising hook, realistic motivation, escalating conflict, an emotionally convincing resolution and warm ending. Real Indonesian dialogue. No repetitive cliches.',
+ 'Do not copy prior drafts. No named real people, Marvel/DC heroes, copyrighted scripts, disinformation, medical claims or spam engagement bait.',
+ format==='VIDEO'?'VIDEO SHORTS: create one COMPLETE original voiceover story of 85-115 Indonesian words with a strong ending; do not output scene numbering.':'Write a vivid story of 140-220 Indonesian words with concrete scenes, not an advertisement or summary.',
+ 'Return only valid JSON with exactly four string keys title,story,caption,imagePrompt. Caption must be concise, original, natural and not clickbait.',
+ 'imagePrompt: specific English cinematic illustration of a fresh original scene, distinctive lighting, no text/lettering and vertical 9:16. Comics should have four clear story panels with no lettering.',
+ feedback?'STRICT OWNER REVISION REQUEST. Improve quality based on these notes, not merely synonym swaps. '+feedback:''
+ ].filter(Boolean).join('\n');}
 export async function research(e){
  let items=[],source='google_trends_rss';try{
   const r=await fetch('https://trends.google.com/trending/rss?geo=ID',{headers:{Accept:'application/rss+xml'}});
@@ -29,43 +30,79 @@ export async function research(e){
  await audit(e,'RESEARCH','',source+' '+items.length);
  return {source,count:items.length};
 }
-export async function makeDraft(e,channel,format,topic){
+export async function makeDraft(e,channel,format,topic,options={}){
  validate(channel,format);
  if(!e.AI)throw Error('Cloudflare AI binding tidak tersedia');
  const limit=Math.max(1,Math.min(100,Number(e.MONTHLY_DRAFT_LIMIT||24)));
  const used=await row(e,'SELECT COUNT(*) n FROM posts WHERE created_at>=?',utc().slice(0,7)+'-01');
- if(Number(used?.n||0)>=limit)throw Error('Batas draft bulanan tercapai');
- const savedStrategy=await row(e,'SELECT value FROM settings WHERE key=?','strategy_'+channel);
- const leader=savedStrategy?.value?JSON.parse(savedStrategy.value).recommendedTopic:null;
- const recentTrends=await list(e,'SELECT topic FROM trends ORDER BY created_at DESC LIMIT 25');
- const selected=selectDraftTopic(channel,{userTopic:topic,strategyTopic:leader,trends:recentTrends,dayIndex:Math.floor(Date.now()/86400000)});
- let cr=null,lastError='';
- for(const model of [mtext,'@cf/meta/llama-3.1-8b-instruct-fp8']){
-  try{
-   const result=await e.AI.run(model,{messages:[{role:'system',content:'You write ORIGINAL Indonesian fictional entertainment. Output only valid JSON with title,story,caption,imagePrompt, no markdown or commentary.'},{role:'user',content:aiPrompt(channel,format,selected)}],max_tokens:1800,temperature:0.4,...(model===mtext?{chat_template_kwargs:{enable_thinking:false}}:{})});
-   const text=result?.response||result?.choices?.[0]?.message?.content||result?.output_text||result?.text||'';
-   cr=parseAI(text); break;
-  }catch(err){lastError=String(err).slice(0,120);}
+ if(Number(used?.n||0)>=limit)throw Error('Batas draft bulanan tercapai; coba bulan depan atau naikkan kuota secara sadar');
+ let selected;
+ if(options.parent)selected=options.parent.topic;
+ else{
+  const savedStrategy=await row(e,'SELECT value FROM settings WHERE key=?','strategy_'+channel);
+  const leader=savedStrategy?.value?JSON.parse(savedStrategy.value).recommendedTopic:null;
+  const recentTrends=await list(e,'SELECT topic FROM trends ORDER BY created_at DESC LIMIT 25');
+  selected=selectDraftTopic(channel,{userTopic:topic,strategyTopic:leader,trends:recentTrends,dayIndex:Math.floor(Date.now()/86400000)});
  }
- if(!cr)throw Error('Model AI gagal memberi JSON lengkap: '+lastError);
- const id=uuid();let mediaKey=null,mediaType=null,issue='';
- if(format==='PHOTO'||format==='COMIC'||format==='VIDEO'){
-  if(!e.MEDIA){issue='MEDIA_STORAGE_NOT_ENABLED';}else{
+ const parent=options.parent||null;
+ const feedback=parent?[
+  'Original topic: '+parent.topic,
+  'Original title: '+String(parent.title).slice(0,150),
+  'Previous story to improve, never repeat verbatim: '+String(parent.story).slice(0,2600),
+  'Previous caption: '+String(parent.caption).slice(0,500),
+  'Rejected by owner because: '+String(options.reason||''),
+  'Owner notes: '+String(options.note||''),
+  'Change plot/characters/hook and camera perspective with a stronger emotional payoff. Produce a clearly DISTINCT take on the SAME TOPIC.'
+ ].join('\n'):'';
+ let cr=null,lastError='';
+ // Rejected drafts are not reused; regenerate with feedback and check substantive difference.
+ for(let attempt=0;attempt<3&&!cr;attempt++){
+  for(const model of [mtext,'@cf/meta/llama-3.1-8b-instruct-fp8']){
    try{
-    const im=await e.AI.run(mimage,{prompt:cr.imagePrompt,steps:4});
-    if(!im?.image)throw Error('Image response invalid');
-    const bytes=Uint8Array.from(atob(im.image),c=>c.charCodeAt(0));
-    if(bytes.byteLength>8_000_000)throw Error('Image too large');
-    mediaKey='images/'+id+'.jpg';mediaType='image/jpeg';
-    await e.MEDIA.put(mediaKey,bytes,{httpMetadata:{contentType:mediaType}});
-   }catch(err){issue='IMAGE_GENERATION_FAILED';await audit(e,'IMAGE_ERROR',id,String(err));}
+    const result=await e.AI.run(model,{
+     messages:[{role:'system',content:'Write ORIGINAL Indonesian fiction. Return ONLY valid JSON with title,story,caption,imagePrompt.'},
+               {role:'user',content:aiPrompt(channel,format,selected,feedback+(attempt?' IMPORTANT: Previous revised proposal was insufficiently different. Write a completely new original narrative approach.':'')}],
+     max_tokens:1900,temperature:Math.min(0.8,0.45+attempt*0.14),
+     ...(model===mtext?{chat_template_kwargs:{enable_thinking:false}}:{})
+    });
+    const text=result?.response||result?.choices?.[0]?.message?.content||result?.output_text||result?.text||'';
+    const candidate=parseAI(text);
+    const words=candidate.story.trim().split(/\s+/).length;
+    if(format==='VIDEO'&&(words<65||words>145))throw Error('Naskah video bukan cerita utuh 65-145 kata');
+    if(format!=='VIDEO'&&words<90)throw Error('Cerita terlalu pendek');
+    if(parent&&(candidate.title.trim().toLocaleLowerCase('id-ID')===parent.title.trim().toLocaleLowerCase('id-ID')||
+      creativeSimilarity(candidate.story,parent.story)>0.68||
+      candidate.caption.trim()===parent.caption.trim()))throw Error('Revisi terlalu mirip draft lama');
+    cr=candidate;break;
+   }catch(err){lastError=String(err).slice(0,135);}
+  }
+ }
+ if(!cr)throw Error('Regenerasi gagal memberi cerita orisinal cukup baik: '+lastError);
+ const id=uuid();let mediaKey=null,mediaType=null,issue='',previewKey=null;
+ // Every draft gets an illustration for owner REVIEW, even TEXT. TEXT publisher still posts text only.
+ if(!e.MEDIA){if(format!=='TEXT')issue='MEDIA_STORAGE_NOT_ENABLED';}
+ else{
+  try{
+   const im=await e.AI.run(mimage,{prompt:cr.imagePrompt,steps:4});
+   if(!im?.image)throw Error('Image response invalid');
+   const bytes=Uint8Array.from(atob(im.image),c=>c.charCodeAt(0));
+   if(bytes.byteLength>8_000_000)throw Error('Image too large');
+   previewKey='images/'+id+'.jpg';
+   await e.MEDIA.put(previewKey,bytes,{httpMetadata:{contentType:'image/jpeg'}});
+   mediaKey=previewKey;mediaType='image/jpeg';
+  }catch(err){
+   if(format!=='TEXT')issue='IMAGE_GENERATION_FAILED';
+   await audit(e,'PREVIEW_IMAGE_FAILED',id,String(err));
   }
  }
  if(format==='VIDEO')issue=mediaKey?'VIDEO_RENDER_REQUIRED':'VIDEO_IMAGE_REQUIRED';
- await run(e,`INSERT INTO posts(id,channel,format,title,story,caption,topic,image_prompt,media_key,media_type,state,license_ok,risk_note,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
- id,channel,format,cr.title,cr.story,cr.caption,selected,cr.imagePrompt,mediaKey,mediaType,issue?'BLOCKED':'PENDING_REVIEW',0,issue,utc(),utc());
- await audit(e,'DRAFT_CREATED',id,channel+'/'+format);
- return {id,channel,format,status:issue?'BLOCKED':'PENDING_REVIEW',issue};
+ const created=utc(),state=issue?'BLOCKED':'PENDING_REVIEW';
+ await run(e,'INSERT INTO posts(id,channel,format,title,story,caption,topic,image_prompt,media_key,media_type,state,license_ok,risk_note,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+ id,channel,format,cr.title,cr.story,cr.caption,selected,cr.imagePrompt,mediaKey,mediaType,state,0,issue,created,created);
+ await run(e,'INSERT INTO draft_reviews(post_id,parent_id,revision_depth,preview_media_key,updated_at) VALUES(?,?,?,?,?)',
+  id,parent?.id||null,parent?Number(options.depth||1):0,previewKey,created);
+ await audit(e,parent?'DRAFT_REGENERATED':'DRAFT_CREATED',id,channel+'/'+format+(parent?'; parent='+parent.id:''));
+ return {id,channel,format,status:state,issue,previewReady:!!previewKey,revisionDepth:parent?Number(options.depth||1):0,parentId:parent?.id||null};
 }
 async function approve(e,id){
  const p=await row(e,'SELECT * FROM posts WHERE id=?',id);

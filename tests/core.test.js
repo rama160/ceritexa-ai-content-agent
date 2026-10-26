@@ -153,3 +153,56 @@ test('mocked Worker reject-to-regenerate retains original, creates one linked re
  assert.equal(posts.size,2);
  assert.ok(auditRows.length>=2);
 });
+
+test('pwa manifest remains installable and branded with same-origin icons',()=>{
+ const core=readFileSync(new URL('../src/core.js',import.meta.url),'utf8').replace(/^export /gm,'');
+ const idx=readFileSync(new URL('../src/index.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/,'').replace(/^export /gm,'').replace('default{','const __worker={');
+ const setup=new Function(core+'\n'+idx+'\nreturn {manifest:pwaManifest,sw:serviceWorkerScript,appIcon,logo:CERITEXA_LOGO};')();
+ assert.equal(setup.manifest.name,'Ceritexa AI Content Agent');
+ assert.equal(setup.manifest.display,'standalone');
+ assert.equal(setup.manifest.scope,'/');
+ assert.equal(setup.manifest.start_url,'/');
+ assert.equal(setup.manifest.id,'/');
+ assert.equal(setup.manifest.prefer_related_applications,false);
+ assert.ok(setup.manifest.icons.some(icon=>icon.sizes==='192x192'));
+ assert.ok(setup.manifest.icons.some(icon=>icon.sizes==='512x512'));
+ assert.match(setup.appIcon(192),/xmlns="http:\/\/www.w3.org\/2000\/svg"/);
+ assert.match(setup.appIcon(512),/Ceritexa Studio/);
+ assert.ok(setup.logo.startsWith('data:image/jpeg;base64,'));
+});
+test('pwa offline cache is public shell only and never stores private API data',()=>{
+ const core=readFileSync(new URL('../src/core.js',import.meta.url),'utf8').replace(/^export /gm,'');
+ const idx=readFileSync(new URL('../src/index.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/,'').replace(/^export /gm,'').replace('default{','const __worker={');
+ const sw=new Function(core+'\n'+idx+'\nreturn serviceWorkerScript;')();
+ assert.doesNotThrow(()=>new vm.Script(sw));
+ assert.match(sw,/url\.pathname\.startsWith\('\/api\/'\)/);
+ assert.match(sw,/request\.headers\.has\('Authorization'\)/);
+ assert.match(sw,/request\.mode==='navigate'/);
+ assert.match(sw,/cache\.addAll\(SHELL\)/);
+ assert.ok(!sw.includes('localStorage'));
+ assert.ok(!sw.includes('ADMIN_TOKEN'));
+ assert.ok(!sw.includes('MEDIAKV'));
+});
+test('dashboard pwa install UI and routes remain independent of authorization',()=>{
+ const core=readFileSync(new URL('../src/core.js',import.meta.url),'utf8').replace(/^export /gm,'');
+ const idx=readFileSync(new URL('../src/index.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/,'').replace(/^export /gm,'').replace('default{','const __worker={');
+ const app=new Function(core+'\n'+idx+'\nreturn __worker;')();
+ const e={};
+ const get=path=>app.fetch(new Request('https://ceritexa.test'+path,{method:'GET'}),e);
+ return Promise.all([get('/manifest.webmanifest'),get('/sw.js'),get('/icon-192.svg'),get('/icon-512.svg'),get('/icon-96.jpg'),get('/')]).then(async responses=>{
+  for(const r of responses)assert.equal(r.status,200);
+  assert.match(responses[0].headers.get('Content-Type'),/manifest\+json/);
+  assert.match(responses[1].headers.get('Content-Type'),/javascript/);
+  assert.match(responses[2].headers.get('Content-Type'),/svg\+xml/);
+  assert.match(responses[3].headers.get('Content-Type'),/svg\+xml/);
+  assert.match(responses[4].headers.get('Content-Type'),/image\/jpeg/);
+  const html=await responses[5].text();
+  assert.match(html,/beforeinstallprompt/);
+  assert.match(html,/id="installPwa"/);
+  assert.match(html,/rel="manifest"/);
+  assert.match(html,/serviceWorker\.register/);
+  const protectedResponse=await get('/api/posts');
+  assert.equal(protectedResponse.status,503);
+  assert.match(responses[5].headers.get('Content-Security-Policy'),/worker-src 'self'/);
+ });
+});

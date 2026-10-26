@@ -208,9 +208,14 @@ async function upload(e,id,req){
  if((mime==='image/jpeg'&&!jpg)||(mime==='image/png'&&!png)||(mime==='video/mp4'&&!mp4))throw Error('Signature media tidak valid');
  if(p.format==='VIDEO'&&!mp4)throw Error('VIDEO requires MP4');
  if(p.format!=='VIDEO'&&mp4)throw Error('Preview foto/teks/komik memerlukan gambar');
- const key='owner/'+id+(mp4?'.mp4':png?'.png':'.jpg');
+ // Versioned objects are CRITICAL: a new cinematic MP4 must not overwrite a
+ // previous owner-review MP4, including legacy owner/<post-id>.mp4 media.
+ const key='owner/'+id+'/'+uuid()+(mp4?'.mp4':png?'.png':'.jpg');
  await e.MEDIA.put(key,arr,{httpMetadata:{contentType:mime}});
- await run(e,"UPDATE posts SET media_key=?,media_type=?,state='PENDING_REVIEW',risk_note='',updated_at=? WHERE id=?",key,mime,utc(),id);
+ // A reviewer may have approved/scheduled the post while we uploaded.
+ // A CAS update prevents a late upload from rolling back an approved post.
+ const claim=await run(e,"UPDATE posts SET media_key=?,media_type=?,state='PENDING_REVIEW',risk_note='',updated_at=? WHERE id=? AND state IN ('BLOCKED','PENDING_REVIEW')",key,mime,utc(),id);
+ if(claim.meta?.changes!==1)throw Error('Status draft berubah ketika upload. Media lama tetap aman; muat ulang.');
  if(!mp4)await run(e,"INSERT INTO draft_reviews(post_id,preview_media_key,updated_at) VALUES(?,?,?) ON CONFLICT(post_id) DO UPDATE SET preview_media_key=excluded.preview_media_key,updated_at=excluded.updated_at",id,key,utc());
  await audit(e,'MEDIA_UPLOADED',id,mime);return {id,media_key:key};
 }

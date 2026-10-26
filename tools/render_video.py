@@ -5,6 +5,7 @@ Single canonical renderer for Panex/Heros. No automatic provider publishing.
 Requires the GitHub Actions CERITEXA_ADMIN_TOKEN repository secret.
 """
 import json
+import hashlib
 import os
 import subprocess
 import sys
@@ -25,7 +26,7 @@ def request(path: str, data=None, content_type=None):
     """Authenticated API request. Token is NEVER placed in URL or diagnostic logs."""
     headers = {
         "Authorization": "Bearer " + TOKEN,
-        "User-Agent": "Ceritexa-renderer/1.4.2",
+        "User-Agent": "Ceritexa-renderer/1.5.0",
         "Cache-Control": "no-store",
     }
     if content_type:
@@ -36,7 +37,7 @@ def request(path: str, data=None, content_type=None):
     try:
         with urllib.request.urlopen(req, timeout=80) as response:
             body = response.read()
-            return body if path.startswith("/api/media/") else json.loads(body)
+            return body if path.startswith("/api/media/") or path.endswith("/image") else json.loads(body)
     except urllib.error.HTTPError as exc:
         if exc.code == 401:
             raise RuntimeError("HTTP 401: CERITEXA_ADMIN_TOKEN GitHub tidak cocok dengan ADMIN_TOKEN Worker.") from None
@@ -124,50 +125,147 @@ def verify_upload(ident: str):
     raise RuntimeError("Worker did not confirm media_type=video/mp4 and state=PENDING_REVIEW after upload.")
 
 
+def voice_for_channel(channel: str) -> str:
+    """Channel-scoped neural narrator. No automatic robotic downgrade."""
+    default = "id-ID-ArdiNeural" if channel == "heros" else "id-ID-GadisNeural"
+    override = os.environ.get("CERITEXA_VOICE_HEROS" if channel == "heros" else "CERITEXA_VOICE_PANEX", default)
+    if override not in ("id-ID-ArdiNeural", "id-ID-GadisNeural"):
+        raise ValueError("Only approved Indonesian neural narrator voices are enabled")
+    return override
+
+
+def synthesize_neural(story: str, channel: str, folder: Path):
+    """Edge online neural TTS provides actual subtitle timings. It is unofficial and may fail.
+
+    Fail visibly if unavailable; never generate a low-quality eSpeak video as 'cinematic'.
+    """
+    speech = folder / "narration.mp3"
+    subtitles = folder / "captions.srt"
+    voice = voice_for_channel(channel)
+    errors = []
+    for rate in ("+0%", "+12%", "+24%"):
+        for path in (speech, subtitles):
+            path.unlink(missing_ok=True)
+        try:
+            command("edge-tts", "--voice", voice, "--rate", rate,
+                    "--text", story, "--write-media", str(speech),
+                    "--write-subtitles", str(subtitles))
+            if not speech.exists() or speech.stat().st_size < 3500:
+                raise RuntimeError("Neural TTS produced no usable speech audio")
+            if not subtitles.exists() or "-->" not in subtitles.read_text(encoding="utf-8"):
+                raise RuntimeError("Neural TTS returned no synchronized SRT subtitle timings")
+            length = duration_seconds(speech)
+            if 8 < length <= 58.5:
+                return speech, subtitles, length, voice, rate
+            errors.append(f"duration {length:.1f}s at {rate}")
+        except Exception as exc:
+            errors.append(str(exc)[:130])
+            # An unavailable provider must fail closed, not silently switch to robotic audio.
+            if "returned" in str(exc) or "TTS" in str(exc):
+                break
+    raise RuntimeError(
+        "Narasi neural gagal atau tidak muat dalam 59 detik. "
+        "Edit naskah agar lebih singkat atau ulangi jika Edge TTS tersedia lagi. "
+        "Details: " + "; ".join(errors[-3:])
+    )
+
+
+def get_storyboard_images(ident: str, folder: Path):
+    """Only accept four actual distinct original scenes, not the same single JPEG repeated."""
+    meta = request("/api/posts/" + ident + "/storyboard", b"{}", "application/json")
+    scenes = meta.get("scenes", [])
+    if not meta.get("ready") or len(scenes) != 4:
+        raise RuntimeError("Ceritexa storyboard must contain four completed visual scenes")
+    paths, hashes = [], set()
+    for index, scene in enumerate(scenes):
+        if scene.get("index") != index:
+            raise RuntimeError("Storyboard scene ordering is invalid")
+        data = request("/api/posts/" + ident + "/storyboard/" + str(index) + "/image")
+        if not isinstance(data, bytes) or not data.startswith(b"\xff\xd8") or len(data) < 1000:
+            raise RuntimeError(f"Storyboard scene {index+1} has no valid JPEG")
+        digest = hashlib.sha256(data).digest()
+        if digest in hashes:
+            raise RuntimeError("Two storyboard scenes are byte-for-byte identical")
+        hashes.add(digest)
+        path = folder / f"scene-{index:02}.jpg"
+        path.write_bytes(data)
+        paths.append(path)
+    return paths
+
+
+def motion_graph(scene_count: int, voice_duration: float, subtitle_file: Path):
+    """One motion camera per story beat, crossfade the contiguous beats, then subtitles."""
+    if scene_count != 4 or not (8 < voice_duration <= 59):
+        raise ValueError("Motion edit requires 4 scenes and 8-59 seconds of narration")
+    fade = 0.38
+    segment = (voice_duration + (scene_count - 1) * fade) / scene_count
+    filters = []
+    for i in range(scene_count):
+        # Different pan/dolly behavior on every shot, but no fake character walking animation.
+        zoom = ["min(zoom+0.00075,1.13)", "min(zoom+0.00060,1.12)",
+                "min(zoom+0.00090,1.17)", "min(zoom+0.00055,1.11)"][i]
+        x = "iw/2-(iw/zoom/2)" if i % 2 == 0 else "max(0,iw/2-(iw/zoom/2))"
+        y = "ih/2-(ih/zoom/2)"
+        filters.append(
+            f"[{i}:v]scale=600:1068:force_original_aspect_ratio=increase,"
+            f"crop=600:1068,zoompan=z='{zoom}':x='{x}':y='{y}':d=1:s=540x960:fps=24,"
+            f"trim=duration={segment:.3f},settb=AVTB,setpts=PTS-STARTPTS[v{i}]"
+        )
+    prior = "v0"
+    for i in range(1, scene_count):
+        nxt = f"mix{i}"
+        transition = ("fade", "wipeleft", "fade")[i-1]
+        offset = i * (segment - fade)
+        filters.append(f"[{prior}][v{i}]xfade=transition={transition}:"
+                       f"duration={fade:.3f}:offset={offset:.3f}[{nxt}]")
+        prior = nxt
+    srt = str(subtitle_file).replace("'", "\\'")
+    filters.append(
+        f"[{prior}]subtitles='{srt}':"
+        "force_style='FontName=DejaVu Sans,FontSize=16,Outline=2,Shadow=0,MarginV=115'[outv]"
+    )
+    return ";".join(filters), segment
+
+
+def encode_motion_movie(images, voice, subtitles, duration, output: Path):
+    """4 different shots, pan/zoom and crossfades; fail if MP4 cannot be validated."""
+    graph, segment = motion_graph(len(images), duration, subtitles)
+    # 720 kbits video + 80 kbits audio targets <7.5MB in 59 seconds.
+    for rate in (720, 570):
+        args = ["ffmpeg", "-y", "-loglevel", "error"]
+        for image in images:
+            args.extend(["-loop", "1", "-framerate", "24", "-t", f"{segment + .12:.3f}", "-i", str(image)])
+        args.extend(["-i", str(voice), "-filter_complex", graph,
+                     "-map", "[outv]", "-map", f"{len(images)}:a:0",
+                     "-c:v", "libx264", "-preset", "veryfast",
+                     "-b:v", f"{rate}k", "-maxrate", f"{rate+100}k",
+                     "-bufsize", f"{(rate+100)*2}k",
+                     "-r", "24", "-pix_fmt", "yuv420p",
+                     "-c:a", "aac", "-b:a", "80k", "-af", "loudnorm=I=-16:LRA=11:TP=-2.0",
+                     "-t", f"{duration:.3f}", "-movflags", "+faststart",
+                     "-shortest", str(output)])
+        command(*args)
+        if output.stat().st_size <= MAX_BYTES:
+            return verify_mp4(output)
+    raise ValueError("Cinematic MP4 >7.5MB; reduce duration, do not upload")
+
+
 def render(item, folder: Path):
     ident = item["id"]
-    story = item["story"].strip()
+    story = str(item["story"] or "").strip()
     if len(story) < 100 or len(story.split()) > 145:
-        raise ValueError("Naskah VIDEO harus 100+ karakter dan tidak lebih dari 145 kata.")
-
-    source = folder / "art.jpg"
-    illustration = request("/api/media/" + ident)
-    if not illustration.startswith(b"\xff\xd8"):
-        raise ValueError("Source artwork must be valid JPEG (not an MP4 or error response).")
-    source.write_bytes(illustration)
-    wav, srt, mp4 = folder / "voice.wav", folder / "caption.srt", folder / "output.mp4"
-
-    # Preserve every story word; accelerate TTS only if needed to fit within 59 seconds.
-    duration = 0
-    for speed in [175, 195, 215]:
-        command("espeak-ng", "-v", "id", "-s", str(speed), "-w", str(wav), story[:6500])
-        duration = duration_seconds(wav)
-        if 8 < duration <= 59:
-            break
-    if not 8 < duration <= 59:
-        raise ValueError(f"Durasi narasi {duration:.1f}s di luar target 8-59 detik. Pendekkan naskah VIDEO melalui Edit draft.")
-
-    create_subtitles(story, duration, srt)
-    filt = (
-        "scale=480:854:force_original_aspect_ratio=increase,crop=480:854,"
-        "format=yuv420p,subtitles=" + str(srt)
-        + ":force_style='FontName=DejaVu Sans,FontSize=15,Outline=2,Shadow=1,MarginV=65'"
-    )
-    command(
-        "ffmpeg", "-y", "-loglevel", "error", "-loop", "1", "-framerate", "24",
-        "-i", str(source), "-i", str(wav), "-vf", filt,
-        "-c:v", "libx264", "-preset", "veryfast",
-        "-b:v", "220k", "-maxrate", "320k", "-bufsize", "640k",
-        "-r", "24", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "64k",
-        "-t", str(duration), "-movflags", "+faststart",
-        "-shortest", str(mp4),
-    )
-    size = verify_mp4(mp4)
-    uploaded = request("/api/posts/" + ident + "/media", mp4.read_bytes(), "video/mp4")
+        raise ValueError("Naskah VIDEO harus 100+ karakter dan maksimum 145 kata.")
+    images = get_storyboard_images(ident, folder)
+    narration, captions, duration, voice, rate = synthesize_neural(story, item["channel"], folder)
+    output = folder / "cinematic.mp4"
+    size = encode_motion_movie(images, narration, captions, duration, output)
+    uploaded = request("/api/posts/" + ident + "/media", output.read_bytes(), "video/mp4")
     if uploaded.get("id") != ident or not uploaded.get("media_key", "").endswith(".mp4"):
-        raise RuntimeError("Worker upload API did not acknowledge the correct MP4 draft.")
+        raise RuntimeError("Cloudflare did not acknowledge cinematic MP4 upload")
     key = verify_upload(ident)
-    report(ident, "COMPLETED", f"MP4 uploaded and D1 verified ({size} bytes)")
+    report(ident, "COMPLETED",
+           f"CINEMATIC_MOTION_COMIC; 4 scenes; neural={voice}; rate={rate}; "
+           f"MP4/D1 verified; {size} bytes")
     return size, key
 
 
@@ -201,6 +299,12 @@ def main():
             assert path.read_text(encoding="utf-8").count("-->") == 1
             assert eligible([{"format": "VIDEO", "channel": "panex", "state": "BLOCKED", "media_type": "image/jpeg", "risk_note": "VIDEO_RENDER_REQUIRED", "media_key": "images/1.jpg"}])
             assert not eligible([{"format": "VIDEO", "channel": "panex", "state": "PENDING_REVIEW", "media_type": "video/mp4", "risk_note": "", "media_key": "owner/1.mp4"}])
+            assert voice_for_channel("panex") in ("id-ID-GadisNeural","id-ID-ArdiNeural")
+            graph, segment = motion_graph(4, 40.0, Path(temp) / "caption.srt")
+            assert graph.count("xfade=") == 3 and "zoompan=" in graph
+            assert segment > 10.0
+            assert "subtitles=" in graph
+
         print("Renderer self-test PASS")
         return 0
 
@@ -220,7 +324,7 @@ def main():
         summary([f"❌ Cannot check Ceritexa drafts: {exc}"])
         return 1
 
-    print("Eligible unrendered Shorts:", len(candidates), flush=True)
+    print("Eligible cinematic Shorts:", len(candidates), "(strict 4-scene / neural mode)", flush=True)
     if not candidates:
         summary(["ℹ️ No blocked JPEG-based YouTube drafts require MP4 rendering.",
                  "This is not evidence of a completed upload. Review each draft's media_type in the dashboard."])

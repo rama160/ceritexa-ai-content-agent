@@ -565,7 +565,7 @@ async function openStoryboardGallery(id){
   }
   if(ticket!==activeMediaRequest)return;
   container.replaceChildren(gallery);
-  el('mediaDialogStatus').textContent=data.sceneCount+'/4 adegan. Foto still dengan gerakan kamera pada hasil MP4; belum animasi karakter secara nyata.';
+  el('mediaDialogStatus').textContent=data.sceneCount+'/'+data.plannedCount+' adegan mengikuti kebutuhan narasi.'+(data.stale?' Storyboard lama tidak sesuai dengan naskah; tekan Lanjutkan storyboard untuk membangun ulang.':'')+(data.ready?' Semua adegan tersedia.':' Belum lengkap, perlu lanjutkan generasi.')+' Gerakan kamera pada hasil MP4 bukan animasi karakter sungguhan.';
  }catch(error){
   if(ticket===activeMediaRequest)el('mediaDialogStatus').textContent='Storyboard: '+String(error.message||error);
  }
@@ -613,9 +613,11 @@ function renderDraft(x){
  const reasonSelect='<select data-reason="'+id+'">'+rejectionReasons.map(r=>'<option value="'+safe(r)+'">'+safe(r)+'</option>').join('')+'</select>';
  const isMp4=x.media_type==='video/mp4';
  const sceneCount=Math.max(0,Number(x.storyboard_count||0));
+ const plannedCount=Math.max(0,Number(x.planned_scene_count||0));
+ const storyboardComplete=plannedCount>0&&sceneCount===plannedCount;
  const viewLabel=isMp4?'Putar video MP4':x.format==='VIDEO'?'Lihat ilustrasi (MP4 belum siap)':'Perbesar gambar asli';
  const actions=(x.format==='VIDEO'&&sceneCount>0?'<button type="button" data-viewscenes="'+id+'">Pratinjau '+sceneCount+' adegan</button>':'')+
-  (x.format==='VIDEO'&&x.state==='BLOCKED'?'<button data-storyboard="'+id+'">Siapkan storyboard 4 adegan ('+sceneCount+'/4)</button>':'')+
+  (x.format==='VIDEO'&&x.state==='BLOCKED'?'<button data-storyboard="'+id+'">'+(sceneCount?'Lanjutkan storyboard':'Siapkan storyboard')+' ('+sceneCount+'/'+(plannedCount||'?')+' adegan)'</button>':'')+
   (x.format==='VIDEO'&&isMp4&&x.state==='PENDING_REVIEW'?'<button data-upgradevideo="'+id+'">Render ulang jadi video sinematik</button>':'')+
   (reviewable?'<button data-gencover="'+id+'">'+(x.preview_media_key?'Ganti ilustrasi AI':'Buat gambar review AI')+'</button>':'')+(x.media_key?'<button type="button" data-view="'+id+'" data-media-label="'+safe(viewLabel)+'" data-media-type="'+safe(x.media_type||'')+'">'+safe(viewLabel)+'</button>':'')+
   (reviewable?'<input type="file" data-file="'+id+'" accept="'+(x.format==='VIDEO'?'video/mp4':'image/jpeg,image/png')+'"><button data-upload="'+id+'">Ganti / tambah media</button>':'')+
@@ -632,7 +634,7 @@ function renderDraft(x){
  const status='<span class="tag">'+safe(x.channel)+' · '+safe(x.format)+' · '+safe(x.state)+'</span>';
  const videoNotice=x.format==='VIDEO'&&!isMp4?'<p class="video-notice">Ini masih ilustrasi AI, bukan video MP4. Render melalui <a href="https://github.com/rama160/ceritexa-ai-content-agent/actions/workflows/render-video.yml" target="_blank" rel="noopener noreferrer">GitHub Actions Ceritexa</a> untuk membuat video sebelum review dan upload.</p>':'';
  const renderFeedback=x.format==='VIDEO'&&x.state==='BLOCKED'&&x.render_event?'<p class="video-notice">'+safe(x.render_event)+'</p>':'';
- const videoQuality=x.format==='VIDEO'?'<p class="video-notice">'+(isMp4?(String(x.render_event||'').includes('CINEMATIC_MOTION_COMIC')?'Mode: empat adegan, gerakan kamera sinematik, narasi neural.':'MP4 lama: kemungkinan satu foto dan suara robotik. Gunakan Render ulang jadi video sinematik.'):'Storyboard: '+sceneCount+'/4 adegan. Render setelah semua adegan siap.')+'</p>':'';
+ const videoQuality=x.format==='VIDEO'?'<p class="video-notice">'+(isMp4?(String(x.render_event||'').includes('CINEMATIC_MOTION_COMIC')?'Video multiadegan mengikuti perubahan peristiwa dan tempo narasi; gerakan kamera dan suara neural.':'MP4 lama: kemungkinan satu foto dan suara robotik. Gunakan Render ulang jadi video sinematik.'):'Storyboard berdasarkan alur narasi: '+sceneCount+'/'+(plannedCount||'?')+' adegan'+(storyboardComplete?' siap untuk render.':'. Lanjutkan pembuatan sampai lengkap sebelum render.'))+'</p>':'';
  return '<article class="draft-card '+(x.state==='REJECTED'?'rejected-card':'')+'" id="draft-'+id+'">'+poster+'<div class="draft-body">'+status+revision+feedback+'<h3>'+safe(x.title)+'</h3><p>'+safe(x.caption)+'</p>'+videoNotice+videoQuality+renderFeedback+'<details><summary>Baca naskah</summary><p>'+safe(x.story)+'</p></details><small>'+safe(x.risk_note||'')+'</small><div class="bar">'+actions+retry+'</div>'+reject+editForm+'</div></article>';
 }
 async function loadPosters(){
@@ -655,9 +657,14 @@ await loadPosters();
 el('trendlist').innerHTML=t.trends.map(x=>'<div class="card"><b>'+safe(x.topic)+'</b><br><small>'+safe(x.source)+'</small></div>').join('')||'<p class="muted">Belum ada riset.</p>';
 document.querySelectorAll('[data-save]').forEach(b=>b.onclick=()=>work(()=>action('posts/'+b.dataset.save+'/edit',{title:document.querySelector('[data-title="'+b.dataset.save+'"]').value,caption:document.querySelector('[data-caption="'+b.dataset.save+'"]').value,story:document.querySelector('[data-story="'+b.dataset.save+'"]').value})));
 document.querySelectorAll('[data-viewscenes]').forEach(b=>b.onclick=()=>openStoryboardGallery(b.dataset.viewscenes));
-document.querySelectorAll('[data-storyboard]').forEach(b=>b.onclick=()=>work(()=>action('posts/'+b.dataset.storyboard+'/storyboard',{})));
+document.querySelectorAll('[data-storyboard]').forEach(b=>b.onclick=()=>work(async()=>{
+ const response=await action('posts/'+b.dataset.storyboard+'/storyboard',{});
+ if(response.ready)return {message:'Storyboard lengkap '+response.sceneCount+'/'+response.plannedCount+' adegan. Silakan pratinjau dan render.',...response};
+ if(response.dailyLimitReached)return {message:'Storyboard '+response.sceneCount+'/'+response.plannedCount+' adegan. Kuota gambar gratis hari ini habis; lanjutkan besok.',...response};
+ return {message:'Storyboard '+response.sceneCount+'/'+response.plannedCount+' adegan. Tekan Lanjutkan storyboard untuk membuat adegan berikutnya.',...response};
+}));
 document.querySelectorAll('[data-upgradevideo]').forEach(b=>b.onclick=()=>{
- if(confirm('Render ulang MP4 menggunakan empat ilustrasi adegan dan suara neural? MP4 lama tetap disimpan, tetapi draft kembali BLOCKED sampai render baru selesai.'))work(()=>action('posts/'+b.dataset.upgradevideo+'/upgrade-video',{}));
+ if(confirm('Render ulang MP4 dengan jumlah adegan mengikuti narasi dan suara neural? MP4 lama tetap tersimpan; draft kembali BLOCKED sampai render baru selesai.'))work(()=>action('posts/'+b.dataset.upgradevideo+'/upgrade-video',{}));
 });
 document.querySelectorAll('[data-gencover]').forEach(b=>b.onclick=()=>work(()=>action('posts/'+b.dataset.gencover+'/preview',{})));
 document.querySelectorAll('[data-reject]').forEach(b=>b.onclick=()=>work(()=>action('posts/'+b.dataset.reject+'/reject',{reason:document.querySelector('[data-reason="'+b.dataset.reject+'"]').value,note:document.querySelector('[data-note="'+b.dataset.reject+'"]').value})));

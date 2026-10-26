@@ -398,3 +398,15 @@ test('four storyboard image assets are idempotent across retries',async()=>{
  assert.equal(mediaRes.status,200);
  assert.match(mediaRes.headers.get('Content-Type'),/image\/jpeg/);
 });
+
+test('storyboard gallery keeps scene images private and cleans up blob URLs',()=>{
+ const src=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
+ assert.match(src,/async function openStoryboardGallery/);
+ assert.match(src,/data-viewscenes/);
+ assert.match(src,/scene\.previewPath/);
+ assert.match(src,/Authorization:'Bearer '\+token/);
+ assert.match(src,/activeSceneUrls\.push/);
+ assert.match(src,/activeSceneUrls\)URL\.revokeObjectURL/);
+ assert.match(src,/scene-gallery/);
+ assert.match(src,/Gerakan kamera|gerakan kamera/);
+});

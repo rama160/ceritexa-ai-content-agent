@@ -37,16 +37,21 @@ jobs:
             exit 1
           fi
           echo "Ceritexa renderer secret is configured (value not printed)."
-      - name: Install free offline video toolchain
+      - name: Install FFmpeg cinematic editor and Indonesian neural TTS client
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg espeak-ng fonts-dejavu-core
+          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core
+          python -m pip install --disable-pip-version-check "edge-tts>=7,<9"
           ffmpeg -version | head -n 1
-          espeak-ng --voices | grep -E '(^Pty|[[:space:]]id[[:space:]])' | head -n 8
-      - name: Render and VERIFY MP4 upload to Ceritexa D1
+          edge-tts --list-voices | grep -E 'id-ID-(Ardi|Gadis)Neural' | head -n 2
+          echo "Neural TTS uses an online unofficial Edge endpoint; errors fail closed (no robotic fallback)."
+
+      - name: Render FOUR cinematic scenes, neural narration and verify MP4
         env:
           CERITEXA_WORKER_URL: https://ceritexa-content-agent.finchat-ai-gateway.workers.dev
           CERITEXA_ADMIN_TOKEN: ${{ secrets.CERITEXA_ADMIN_TOKEN }}
           PYTHONUNBUFFERED: "1"
+          CERITEXA_VOICE_PANEX: "id-ID-GadisNeural"
+          CERITEXA_VOICE_HEROS: "id-ID-ArdiNeural"
         run: |
           python tools/render_video.py

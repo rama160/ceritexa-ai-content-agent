@@ -6,6 +6,10 @@ workers_dev = true
 ALLOW_DAILY_DRAFTS = "true"
 ALLOW_PUBLICATION = "false"
 MONTHLY_DRAFT_LIMIT = "24"
+FB_PAGE_ID = "1362841423585778"
+YT_CHANNEL_ID_PANEX = "UCHUqi1O_qjOZr4QsYklnV-Q"
+YT_CHANNEL_ID_HEROS = "UCR6n0xxWuU5ug9Tjnm9gZdw"
+# Never put ADMIN_TOKEN, FB_PAGE_ACCESS_TOKEN or OAuth refresh tokens in this file.
 [ai]
 binding = "AI"
 [[d1_databases]]

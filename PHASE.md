@@ -121,3 +121,7 @@ Owner reports first three setup tasks completed. Remaining Facebook and two YouT
 - Dedicated Ceritexa Worker PUT returned HTTP 200. Cloudflare management GET confirmed latest version serving 100% traffic, 6 secret bindings preserved, 2 Worker Crons unchanged and ALLOW_PUBLICATION=false. No unrelated Workers touched.
 - Last D1 check: old Panex and Heros drafts currently PENDING_REVIEW with video/mp4, and zero storyboard rows. **No upgraded cinematic content has been made yet.** User must choose Render ulang jadi video sinematik for either old unapproved video, then launch/check GitHub renderer.
 - True moving-character image-to-video via third-party model is NOT part of free mode and remains disabled without owner budget approval; motion-comic camera effects should never be misdescribed as full text-to-video.
+
+### v1.5.0 gallery verification
+- Built private multi-image story gallery in original PWA's mediaDialog, visible as Pratinjau N adegan when storyboard_count > 0. It shows each still image with associated script beat and authenticates all JPEG requests with the existing admin token, revoking blob URLs upon close.
+- 29/29 source/regression/mocked Worker tests passed in isolated JS tool harness. Worker and inline dashboard JS compiled. GitHub Actions end-to-end online Edge voice generation still requires independent run.

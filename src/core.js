@@ -160,7 +160,7 @@ export function creativeSimilarity(a,b){
 export const MAX_STORYBOARD_SCENES=24;
 export const SCENE_IMAGE_DAILY_LIMIT=12;
 export const SCENES_PER_REQUEST=3;
-const NARRATIVE_TURNS=/^(?:tiba-tiba|mendadak|namun|tetapi|akhirnya|kemudian|selanjutnya|lantas|ternyata|seketika|sementara|ketika|setelah|sebelum|di|pada|akhirnya|justru|lalu|begitu|mereka|dia)\b/i;
+const NARRATIVE_TURNS=/^(?:tiba-tiba|mendadak|namun|tetapi|akhirnya|kemudian|selanjutnya|lantas|ternyata|seketika|sementara|ketika|setelah|sebelum|keesokan|paginya|malamnya|justru|lalu|begitu)\b/i;
 const DRAMATIC_ACTIONS=/\b(?:serang|berlari|melompat|menyelamatkan|menangis|jatuh|meledak|pertarungan|berkelahi|teriak|berteriak|terkejut|rahasia|menghilang|terungkap|menemukan|menyadari|memeluk|mengorbankan|berubah)\w*/gi;
 function wordCount(text){return String(text||'').trim().split(/\s+/).filter(Boolean).length;}
 export function sceneBeats(story,channel='panex'){

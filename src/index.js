@@ -635,6 +635,7 @@ async function handle(request,e){
  // continues using the existing Authorization Bearer contract unchanged.
  if(!bearerOk&&!['GET','HEAD'].includes(method)&&!sameOriginMutation(request))
   return answer({error:'Cross-site request not permitted'},403);
+ if(method==='GET'&&p==='/api/editor-config')return answer({rejectionReasons:REJECTION_REASONS});
  if(method==='GET'&&p==='/api/readiness')return answer(readiness(e,await isPaused(e)));
  if(method==='GET'&&p==='/api/connections/verify')return answer(await verifyConnections(e));
  if(method==='GET'&&p==='/api/status')return answer({paused:await isPaused(e),publicationEnabled:e.ALLOW_PUBLICATION==='true',mediaReady:!!e.MEDIA,mediaBackend:e.MEDIAKV?'KV':e.MEDIA?'R2':null,aiReady:!!e.AI,facebookReady:!!(e.FB_PAGE_ID&&e.FB_PAGE_ACCESS_TOKEN),panexReady:!!(e.YT_REFRESH_TOKEN_PANEX&&e.YT_CHANNEL_ID_PANEX),herosReady:!!(e.YT_REFRESH_TOKEN_HEROS&&e.YT_CHANNEL_ID_HEROS),channels:CHANNELS});

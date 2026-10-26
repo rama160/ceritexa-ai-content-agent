@@ -1,4 +1,4 @@
-# PRD — Ceritexa AI Content Agent 1.7.0
+# PRD — Ceritexa AI Content Agent 1.7.1
 Tanggal: 25 Oktober 2026 | Status: IMPLEMENTASI BERTAHAP
 
 ## Produk, pemilik dan batasan
@@ -122,3 +122,9 @@ Tests + build green, Cloudflare bound and deploy, admin denied without token, po
 - Reuse existing actions: generate, edit, approve, reject with reasons and improvements, preview original JPEG/MP4, upload media, owner-initiated cinematic re-render, storyboard gallery, scheduling, trend research and actual analytics. No duplicate endpoints or fake metrics.
 - Owner remains logged in across ordinary reloads and browser/app restarts after one Admin Token connection. Backend stores only hashed opaque session tokens in D1; secure SameSite Strict HttpOnly cookie with server-side revocation on Logout and protection against CSRF/brute force. Credential rotation/browser storage clearing/expiry may end the session. Never promise an unbounded irreversible login.
 - External GitHub renderer uses existing Authorization Bearer token independently of owner cookie. No change to media, auto-draft scheduling, publication permissions or other Cloudflare projects.
+
+## v1.7.1 — Session usability under connectivity changes
+- A temporary Wi-Fi/mobile interruption during dashboard boot or refresh must not display login as if the user signed out. Show a reconnect screen; retry automatically when connectivity returns or on owner tap, retaining the secure server-side session cookie.
+- Explicit authenticated:false from /api/auth/me requires reauthentication; failed network fetch indicates a network/service problem, not logout.
+- Logout is successful only after the dedicated Worker confirms revocation. When offline surface an error and retain the session instead of showing false success.
+- No plaintext credential caching, background public publishing or changes to Facebook/YouTube tokens.

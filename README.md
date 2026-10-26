@@ -1,4 +1,4 @@
-# Ceritexa AI Content Agent — v1.4.0
+# Ceritexa AI Content Agent — v1.4.1
 
 An isolated Cloudflare Worker and GitHub Actions project for:
 - **Ceritexa Studio** (Facebook Page, text/photo/comic)
@@ -167,3 +167,11 @@ No APK or Google Play subscription is necessary. The existing dashboard now supp
 **Technical routes:** /manifest.webmanifest, /sw.js, /icon-192.svg, /icon-512.svg and /icon-96.jpg are PUBLIC metadata/static routes; private media/API routes still require Bearer Admin Token. Content-Security-Policy restricts service-worker and manifest loading to same origin.
 
 **Testing evidence:** local Worker/router and dashboard syntax check, manifest/HTML/icon/service worker GET responses and unauthorized /api/posts response were simulated successfully. Browser installation on an actual Android launcher must be verified by the owner. Do not claim APK or app-store distribution. ALLOW_PUBLICATION remains false, all prior workflows intact.
+
+## v1.4.1 — Fix “Lihat media asli” not responding on installed Android PWA
+- Previously the authenticated media was appended to the **bottom of the draft card**, below long review controls, which made it look like nothing happened. MP4 playback was also missing `media-src blob:` in the Content-Security-Policy.
+- Draft media now opens in an immediately visible accessible **fullscreen modal**. It displays an explicit loading message, an error message on HTTP/MIME failure, a close button, and an image viewer or HTML5 video player with native Play/pause and `playsinline`.
+- Buttons are labeled by actual stored media type: **Perbesar gambar asli** (JPEG/PNG), **Putar video MP4**, or **Lihat ilustrasi (MP4 belum siap)**. Every unrendered YouTube VIDEO draft clearly links to its GitHub Actions video renderer.
+- Preview uses authenticated `GET /api/media/:id` and in-memory `blob:` URLs; URLs are revoked and video pauses when modal closes. No public media URL, token storage or automatic publication.
+- **Confirmed database state on 2026-10-26:** Panex draft “Lentera di Kota Kelam” and Heros draft “Papan Klasemen Takdir” are **BLOCKED / VIDEO_RENDER_REQUIRED** and their primary file is **image/jpeg**, not MP4. Running the Ceritexa Video Renderer workflow is required before the Play MP4 control can appear.
+- GitHub regression suite has **21 tests passing in isolated JS harness**, including new preview and CSP checks. Cloudflare management API confirmed isolated Worker patch deployment, latest traffic 100%, all 6 secret bindings and scheduled jobs retained, `ALLOW_PUBLICATION=false`. Real owner-device modal click should be verified after opening/reloading the installed PWA.

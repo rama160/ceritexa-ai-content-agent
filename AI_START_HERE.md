@@ -1,5 +1,5 @@
 # AI START HERE — Ceritexa canonical rules
-Version 1.2.1 — 2026-10-25
+Version 1.2.2 — 2026-10-25
 
 1. Always read this file, PHASE.md, CHANGELOG.md, PRD.md and ARSITEKTUR.md before work.
 2. Edit existing owner modules rather than writing similar/duplicate files; do not add suffixes *_fixed, *_new, _v2.
@@ -28,3 +28,6 @@ Version 1.2.1 — 2026-10-25
 
 23. Public OAuth brand site is exclusively in `docs/index.html`, `docs/privacy.html`, `docs/terms.html` and shared `docs/style.css`; update these existing files, never add duplicate homepage/privacy/terms files elsewhere. Its role is public documentation, completely separate from the protected Worker dashboard.
 24. Production OAuth settings require real accessible links and ownership verification; GitHub Pages deployment from main:/docs is OWNER ACTION because this integration cannot change repository Pages settings. Do not claim GitHub Pages URL works until real external HTTP check succeeds. GitHub Pages hostname ending .github.io is shared, so Google Search Console verification may need a separately controlled domain.
+
+25. Editorial topic selection is canonical in src/core.js: EDITORIAL_TOPICS, CHANNEL_KEYWORDS, score() and selectDraftTopic(). Do not use unrelated RSS trending headlines for YouTube Heros/Panex; irrelevant trending titles must use channel-specific original story fallback. Manual owner-entered topics always take priority unless blocked by safety policy.
+26. Pilot verification 2026-10-26: Cloudflare D1 and audit logs show Worker DRAFT_CREATED events for Facebook TEXT and Heros VIDEO; Heros art draft is BLOCKED/VIDEO_RENDER_REQUIRED pending video-render workflow. Do not claim a complete video exists until MP4 is present. User independently confirmed all three official channel identities verified=true. OAuth provider test does not equal publish E2E.

@@ -124,3 +124,31 @@ export function readiness(env, paused) {
   ]
  };
 }
+
+/** Canonical rejection contract. Reject + regenerate is bounded and preserves the original draft. */
+export const MAX_REVISION_DEPTH=3;
+export const REJECTION_REASONS=Object.freeze([
+ 'Judul kurang menarik',
+ 'Cerita kurang menyentuh',
+ 'Caption kurang bagus',
+ 'Gambar kurang cocok',
+ 'Terlalu mirip draft sebelumnya',
+ 'Kurang sesuai brand Ceritexa',
+ 'Alasan lain'
+]);
+export function validateRejection(reason,note,depth){
+ const selected=String(reason||'').trim();
+ if(!REJECTION_REASONS.includes(selected))throw Error('Pilih alasan penolakan yang tersedia');
+ const text=String(note||'').trim().slice(0,500);
+ if(selected==='Alasan lain'&&text.length<8)throw Error('Berikan catatan minimal 8 karakter');
+ const n=Number(depth||0);
+ if(!Number.isInteger(n)||n<0||n>MAX_REVISION_DEPTH)throw Error('Jumlah revisi tidak valid');
+ return {reason:selected,note:text,depth:n,maxReached:n>=MAX_REVISION_DEPTH};
+}
+export function creativeSimilarity(a,b){
+ const words=s=>new Set(String(s||'').toLocaleLowerCase('id-ID').match(/[a-z\u00c0-\u024f]+/g)?.filter(w=>w.length>=4)||[]);
+ const x=words(a),y=words(b);
+ if(!x.size||!y.size)return 0;
+ let common=0;for(const w of x)if(y.has(w))common++;
+ return common/(x.size+y.size-common);
+}

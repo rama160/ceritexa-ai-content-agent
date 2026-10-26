@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {CHANNELS,validate,detectRisk,parseRss,score,parseAI,compareToken,gate,readiness} from '../src/core.js';
+import {CHANNELS,validate,detectRisk,parseRss,score,parseAI,compareToken,gate,readiness,selectDraftTopic,EDITORIAL_TOPICS} from '../src/core.js';
 test('kanal terisolasi',()=>{assert.match(CHANNELS.panex.topic,/keluarga/);assert.match(CHANNELS.heros.topic,/superhero/);assert.throws(()=>validate('panex','TEXT'));assert.equal(validate('facebook','PHOTO'),true)});
 test('mengurai RSS',()=>{const x='<item><title><![CDATA[Drama &amp; Keluarga]]></title><link>https://example.org/a</link></item>';assert.equal(parseRss(x)[0].topic,'Drama & Keluarga')});
 test('menolak IP eksternal',()=>{assert.ok(detectRisk('Batman'));assert.equal(score('Marvel hero','heros'),0)});
@@ -37,4 +37,18 @@ test('dashboard inline JavaScript must compile',()=>{
  const inline=workerSource.match(/<script>\s*([\s\S]*?)<\/script>/)?.[1];
  assert.ok(inline,'Dashboard inline script found');
  assert.doesNotThrow(()=>new vm.Script(inline));
+});
+
+test('channel editorial filter rejects unrelated viral football trends',()=>{
+ const trends=[{topic:'klasemen liga jerman'},{topic:'skor pertandingan sepak bola'}];
+ assert.equal(score(trends[0].topic,'heros'),0);
+ assert.equal(score(trends[0].topic,'panex'),0);
+ assert.equal(selectDraftTopic('heros',{trends,dayIndex:0}),EDITORIAL_TOPICS.heros[0]);
+ assert.equal(selectDraftTopic('panex',{trends,dayIndex:1}),EDITORIAL_TOPICS.panex[1]);
+ assert.notEqual(selectDraftTopic('heros',{trends,dayIndex:0}),selectDraftTopic('panex',{trends,dayIndex:0}));
+});
+test('draft selector honors explicit owner topic and genuinely relevant channel trends',()=>{
+ assert.equal(selectDraftTopic('facebook',{userTopic:'Cerita pilihan saya',trends:[{topic:'klasemen liga jerman'}]}),'Cerita pilihan saya');
+ assert.match(selectDraftTopic('heros',{trends:[{topic:'klasemen liga jerman'},{topic:'Superhero orisinal menyelamatkan kota'}]}),/Superhero orisinal/);
+ assert.throws(()=>selectDraftTopic('heros',{userTopic:'Batman'}));
 });

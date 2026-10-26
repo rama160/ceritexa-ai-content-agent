@@ -1,5 +1,5 @@
-# PHASE — Ceritexa AI Content Agent v1.5.0
-Updated: 2026-10-25 (WITA). Source of truth: test evidence, not feature claims.
+# PHASE — Ceritexa AI Content Agent v1.6.0
+Updated: 2026-10-26 (WITA). Source of truth: test evidence, not feature claims.
 
 | Phase | Status | Verifikasi |
 |---|---|---|
@@ -125,3 +125,13 @@ Owner reports first three setup tasks completed. Remaining Facebook and two YouT
 ### v1.5.0 gallery verification
 - Built private multi-image story gallery in original PWA's mediaDialog, visible as Pratinjau N adegan when storyboard_count > 0. It shows each still image with associated script beat and authenticates all JPEG requests with the existing admin token, revoking blob URLs upon close.
 - 29/29 source/regression/mocked Worker tests passed in isolated JS tool harness. Worker and inline dashboard JS compiled. GitHub Actions end-to-end online Edge voice generation still requires independent run.
+
+## v1.6.0 — Dynamic narrative storyboard (26 October 2026)
+- OWNER REQUIREMENT: use number of scenes according to each story/narration, not permanently 4. Existing 4-boundary persisted in src/core.js, Worker storyboard logic and the D1 CHECK constraint, plus Python renderer. All three changed in existing canonical files.
+- NEW planner sceneBeats(story,channel) uses plot/action transitions, punctuation and pace to split ALL original words. Example 98-word samples yielded 7 Panex versus 13 Heros scenes. The maximum 24 is a technical guard for Shorts input, not a constant scene count.
+- New additive schema migration 0004_dynamic_storyboard.sql applied to Ceritexa D1 only via the management API in a five-statement batch. BEFORE=4 storyboard records; AFTER=4, with scene_index CHECK 0..63. No user draft or image objects deleted.
+- Existing Worker storyboard API returns plannedCount, sceneCount, remaining, stale, ready and dailyLimitReached. Uses 3-image batches, free image budget 12/day, partial progress preservation, and owner-initiated replan of stale old 4-beat links. Dashboard shows X/Y progress, dynamic guidance and private gallery.
+- Existing renderer Python removed exactly-four requirements, resumes multi-request generation to planned count, verifies distinct images, assigns narration-proportional screen time and composes variable-length FFmpeg shots. Synthetic local FFmpeg tests (6 scenes / 8.16s, 10 scenes / 13.39s) both produced valid 540x960 H264+AAC MP4.
+- Code syntax Worker and dashboard PASS, 32/32 existing/regression/mock JS tests PASS. New code deployment to isolated Ceritexa Worker returned HTTP 200. GET live source verified the dynamic planner and dashboard at 100% latest Worker traffic; six encrypted secrets, two Cron schedules and ALLOW_PUBLICATION=false unchanged.
+- PENDING ACCEPTANCE: actual new dynamic storyboard AI pictures, online neural voice service, GitHub Actions real MP4 output and owner review in installed PWA were NOT automatically invoked to avoid consuming quota or overwriting old MP4 without owner approval. Do not mark these as finished E2E.
+- Mode remains CINEMATIC_MOTION_COMIC, i.e. motion/transition across AI illustrations, not generative moving actors. No paid image-to-video provider or other project has been changed.

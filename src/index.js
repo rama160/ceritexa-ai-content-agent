@@ -1,4 +1,4 @@
-import {CHANNELS,validate,detectRisk,parseRss,score,parseAI,compareToken,gate,readiness,selectDraftTopic,validateRejection,creativeSimilarity,MAX_REVISION_DEPTH,REJECTION_REASONS,sceneBeats,scenePrompt,CINEMATIC_SCENE_COUNT} from './core.js';
+import {CHANNELS,validate,detectRisk,parseRss,score,parseAI,compareToken,gate,readiness,selectDraftTopic,validateRejection,creativeSimilarity,MAX_REVISION_DEPTH,REJECTION_REASONS,sceneBeats,scenePrompt,MAX_STORYBOARD_SCENES,SCENES_PER_REQUEST,SCENE_IMAGE_DAILY_LIMIT} from './core.js';
 const utc=()=>new Date().toISOString(),uuid=()=>crypto.randomUUID();
 const answer=(v,c=200)=>Response.json(v,{status:c,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 const db=(env,q,...params)=>env.DB.prepare(q).bind(...params);
@@ -220,39 +220,68 @@ async function upload(e,id,req){
  */
 async function storyboard(e,id,generate=false){
  const p=await row(e,'SELECT * FROM posts WHERE id=?',id);
- if(!p||p.format!=='VIDEO'||!['panex','heros'].includes(p.channel))throw Error('Draft video tidak ditemukan');
- if(generate&&!(p.state==='BLOCKED'&&p.media_type==='image/jpeg'))throw Error('Storyboard hanya boleh dibuat untuk video BLOCKED dengan ilustrasi JPEG');
- if(!e.MEDIA||!e.AI&&generate)throw Error('Media atau Workers AI belum siap');
- const beats=sceneBeats(p.story);
+ if(!p||p.format!=='VIDEO'||!['panex','heros'].includes(p.channel))throw Error('Draft video YouTube tidak ditemukan');
+ if(generate&&!(p.state==='BLOCKED'&&p.media_type==='image/jpeg'))
+  throw Error('Storyboard hanya boleh dibuat pada VIDEO BLOCKED dengan cover JPEG');
+ if(generate&&(!e.MEDIA||!e.AI))throw Error('Media atau Workers AI tidak tersedia');
+ const beats=sceneBeats(p.story,p.channel);
+ const expected=beats.length;
  let saved=await list(e,'SELECT scene_index,media_key,beat,created_at FROM video_storyboard WHERE post_id=? ORDER BY scene_index',id);
+ const wasReady=saved.length===expected&&saved.every((part,i)=>part.scene_index===i&&part.beat===beats[i].beat);
+ let stale=saved.some(part=>!beats[part.scene_index]||part.beat!==beats[part.scene_index].beat);
+ if(generate&&stale){
+  // Owner requested a new storyboard; retain old image objects in private KV for recovery,
+  // but remove stale DB links so renderer never mixes old 4-beat and new narrative plans.
+  await run(e,'DELETE FROM video_storyboard WHERE post_id=?',id);
+  await audit(e,'STORYBOARD_REPLANNED',id,'Old plan invalid for current story; '+saved.length+' historical image assets retained');
+  saved=[];stale=false;
+ }
  if(generate){
   if(!saved.some(x=>x.scene_index===0)){
    const first=p.media_key||(await row(e,'SELECT preview_media_key FROM draft_reviews WHERE post_id=?',id))?.preview_media_key;
-   if(!first)throw Error('Ilustrasi utama belum ada. Buat gambar review dahulu.');
-   await run(e,'INSERT OR IGNORE INTO video_storyboard(post_id,scene_index,media_key,beat,prompt,created_at) VALUES(?,?,?,?,?,?)',id,0,first,beats[0].beat,scenePrompt(p,beats[0]),utc());
-  }
-  for(let i=1;i<CINEMATIC_SCENE_COUNT;i++){
+   if(!first)throw Error('Ilustrasi cover belum tersedia. Buat gambar review terlebih dahulu.');
+   await run(e,'INSERT OR IGNORE INTO video_storyboard(post_id,scene_index,media_key,beat,prompt,created_at) VALUES(?,?,?,?,?,?)',
+    id,0,first,beats[0].beat,scenePrompt(p,beats[0]),utc());
    saved=await list(e,'SELECT scene_index,media_key,beat,created_at FROM video_storyboard WHERE post_id=? ORDER BY scene_index',id);
+  }
+  let generated=0;
+  for(let i=1;i<expected;i++){
    if(saved.some(x=>x.scene_index===i))continue;
+   if(generated>=SCENES_PER_REQUEST)break;
    const used=await row(e,"SELECT COUNT(*) n FROM audit WHERE action='STORYBOARD_SCENE_CREATED' AND at>=?",utc().slice(0,10));
-   if(Number(used?.n||0)>=12)throw Error('Batas 12 gambar adegan AI/hari tercapai; coba besok atau gunakan storyboard yang sudah tersedia.');
-   const scene=beats[i],prompt=scenePrompt(p,scene),key='storyboard/'+id+'/'+i+'.jpg';
+   if(Number(used?.n||0)>=SCENE_IMAGE_DAILY_LIMIT)break;
+   const scene=beats[i],prompt=scenePrompt(p,scene),key='storyboard/'+id+'/'+i+'/'+uuid()+'.jpg';
    try{
     await saveAIArtwork(e,key,prompt);
-    await run(e,'INSERT OR IGNORE INTO video_storyboard(post_id,scene_index,media_key,beat,prompt,created_at) VALUES(?,?,?,?,?,?)',id,i,key,scene.beat,prompt,utc());
-    await audit(e,'STORYBOARD_SCENE_CREATED',id,'scene '+(i+1)+' / 4; channel '+p.channel);
+    await run(e,'INSERT OR IGNORE INTO video_storyboard(post_id,scene_index,media_key,beat,prompt,created_at) VALUES(?,?,?,?,?,?)',
+     id,i,key,scene.beat,prompt,utc());
+    await audit(e,'STORYBOARD_SCENE_CREATED',id,'scene '+(i+1)+' / '+expected+'; channel '+p.channel);
+    generated++;
+    saved.push({scene_index:i,media_key:key,beat:scene.beat,created_at:utc()});
    }catch(error){
-    await audit(e,'STORYBOARD_FAILED',id,'scene '+(i+1)+': '+String(error.message||error).slice(0,150));
+    await audit(e,'STORYBOARD_FAILED',id,'scene '+(i+1)+'/'+expected+': '+String(error.message||error).slice(0,145));
     throw error;
    }
   }
-  saved=await list(e,'SELECT scene_index,media_key,beat,created_at FROM video_storyboard WHERE post_id=? ORDER BY scene_index',id);
-  if(saved.length!==CINEMATIC_SCENE_COUNT)throw Error('Storyboard belum lengkap 4 adegan');
-  await audit(e,'STORYBOARD_READY',id,'4 distinct scene assets ready for motion-comic edit');
+  saved.sort((a,b)=>a.scene_index-b.scene_index);
+  if(!wasReady&&saved.length===expected&&saved.every((part,i)=>part.scene_index===i&&part.beat===beats[i].beat))
+   await audit(e,'STORYBOARD_READY',id,expected+' story-matched scenes prepared');
  }
- return {id,ready:saved.length===CINEMATIC_SCENE_COUNT,sceneCount:saved.length,
+ const ready=!stale&&saved.length===expected&&saved.every((part,i)=>part.scene_index===i&&part.beat===beats[i].beat);
+ let dailyUsed=0;
+ if(generate){
+  const count=await row(e,"SELECT COUNT(*) n FROM audit WHERE action='STORYBOARD_SCENE_CREATED' AND at>=?",utc().slice(0,10));
+  dailyUsed=Number(count?.n||0);
+ }
+ return {
+  id,ready,stale,sceneCount:saved.length,plannedCount:expected,
+  remaining:Math.max(0,expected-saved.length),needsContinuation:!ready,
+  dailyLimitReached:!ready&&dailyUsed>=SCENE_IMAGE_DAILY_LIMIT,
+  dailyRemaining:generate?Math.max(0,SCENE_IMAGE_DAILY_LIMIT-dailyUsed):undefined,
+  estimatedSeconds:Math.round(beats.reduce((n,x)=>n+x.estimatedSeconds,0)),
   renderMode:'CINEMATIC_MOTION_COMIC',characterMotionGenerated:false,
-  scenes:saved.map(x=>({index:x.scene_index,beat:x.beat,previewPath:'/api/posts/'+id+'/storyboard/'+x.scene_index+'/image'}))};
+  scenes:saved.map(x=>({index:x.scene_index,beat:x.beat,previewPath:'/api/posts/'+id+'/storyboard/'+x.scene_index+'/image'}))
+ };
 }
 async function storyboardImage(e,id,index){
  const scene=await row(e,'SELECT media_key FROM video_storyboard WHERE post_id=? AND scene_index=?',id,index);
@@ -270,7 +299,7 @@ async function upgradeVideo(e,id){
  const claimed=await run(e,"UPDATE posts SET media_key=?,media_type='image/jpeg',state='BLOCKED',risk_note='VIDEO_RENDER_REQUIRED',updated_at=? WHERE id=? AND state='PENDING_REVIEW' AND media_type='video/mp4'",
  art,utc(),id);
  if(claimed.meta?.changes!==1)throw Error('Draft telah berubah; muat ulang');
- await audit(e,'VIDEO_CINEMATIC_UPGRADE_REQUESTED',id,'MP4 lama tetap tersimpan; render ulang 4 scene + neural TTS');
+ await audit(e,'VIDEO_CINEMATIC_UPGRADE_REQUESTED',id,'MP4 lama disimpan; adegan adaptif menurut alur cerita + neural TTS');
  return {id,state:'BLOCKED',media_type:'image/jpeg',queued:true,existingVideoPreserved:true};
 }
 
@@ -696,7 +725,7 @@ async function handle(request,e){
  if(method==='GET'&&p==='/api/readiness')return answer(readiness(e,await isPaused(e)));
  if(method==='GET'&&p==='/api/connections/verify')return answer(await verifyConnections(e));
  if(method==='GET'&&p==='/api/status')return answer({paused:await isPaused(e),publicationEnabled:e.ALLOW_PUBLICATION==='true',mediaReady:!!e.MEDIA,mediaBackend:e.MEDIAKV?'KV':e.MEDIA?'R2':null,aiReady:!!e.AI,facebookReady:!!(e.FB_PAGE_ID&&e.FB_PAGE_ACCESS_TOKEN),panexReady:!!(e.YT_REFRESH_TOKEN_PANEX&&e.YT_CHANNEL_ID_PANEX),herosReady:!!(e.YT_REFRESH_TOKEN_HEROS&&e.YT_CHANNEL_ID_HEROS),channels:CHANNELS});
- if(method==='GET'&&p==='/api/posts')return answer({posts:await list(e,"SELECT p.*,r.parent_id,r.revision_depth,r.rejection_reason,r.rejection_note,r.regen_state,r.preview_media_key,r.last_error,(SELECT a.action||': '||a.detail FROM audit a WHERE a.entity_id=p.id AND a.action IN ('RENDER_STARTED','RENDER_FAILED','RENDER_COMPLETED') ORDER BY a.at DESC LIMIT 1) AS render_event,(SELECT COUNT(*) FROM video_storyboard vs WHERE vs.post_id=p.id) AS storyboard_count FROM posts p LEFT JOIN draft_reviews r ON r.post_id=p.id ORDER BY p.created_at DESC LIMIT 100")});
+ if(method==='GET'&&p==='/api/posts')return answer({posts:(await list(e,"SELECT p.*,r.parent_id,r.revision_depth,r.rejection_reason,r.rejection_note,r.regen_state,r.preview_media_key,r.last_error,(SELECT a.action||': '||a.detail FROM audit a WHERE a.entity_id=p.id AND a.action IN ('RENDER_STARTED','RENDER_FAILED','RENDER_COMPLETED') ORDER BY a.at DESC LIMIT 1) AS render_event,(SELECT COUNT(*) FROM video_storyboard vs WHERE vs.post_id=p.id) AS storyboard_count FROM posts p LEFT JOIN draft_reviews r ON r.post_id=p.id ORDER BY p.created_at DESC LIMIT 100")).map(post=>{let planned=0;if(post.format==='VIDEO')try{planned=sceneBeats(post.story,post.channel).length;}catch{}return {...post,planned_scene_count:planned};})});
  if(method==='GET'&&p==='/api/trends')return answer({trends:await list(e,'SELECT * FROM trends ORDER BY created_at DESC LIMIT 30')});
  if(method==='GET'&&p==='/api/analytics')return answer({analytics:await list(e,'SELECT * FROM metrics ORDER BY observed_at DESC LIMIT 100')});
  if(method==='GET'&&p==='/api/strategy')return answer(await strategy(e));
@@ -704,7 +733,7 @@ async function handle(request,e){
  if(method==='GET'){
   const storyboardMatch=p.match(/^\/api\/posts\/([0-9a-f-]{36})\/storyboard$/);
   if(storyboardMatch)return answer(await storyboard(e,storyboardMatch[1],false));
-  const sceneMatch=p.match(/^\/api\/posts\/([0-9a-f-]{36})\/storyboard\/([0-3])\/image$/);
+  const sceneMatch=p.match(/^\/api\/posts\/([0-9a-f-]{36})\/storyboard\/(\d{1,2})\/image$/);
   if(sceneMatch)return storyboardImage(e,sceneMatch[1],Number(sceneMatch[2]));
  }
  if(method==='GET'&&p.startsWith('/api/media/'))return media(e,p.slice('/api/media/'.length));

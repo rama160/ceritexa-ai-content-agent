@@ -120,3 +120,7 @@
 - Cloudflare returned HTTP 200 on isolated Ceritexa Worker upload and management GET confirmed the 1.4.0 PWA code on latest 100% deployment.
 - 19 core/regression tests passed in a local JS-compatible harness, including unauthenticated PWA routes and protected data boundaries. Android install prompt and device-specific launcher behavior still need owner acceptance.
 - Existing admin, Facebook and two YouTube refresh token secrets preserved without revealing their values. Two Cron triggers unchanged, ALLOW_PUBLICATION remained false.
+
+### v1.5.0 private storyboard review
+- Added in-app Pratinjau N adegan gallery to existing mediaDialog, authenticated scene JPEG fetch and cleanup of temporary URLs; no duplicate UI module or shared media URLs.
+- 29 regression/source/mock tests passed in isolated JS harness; actual user-device review remains pending. Existing OAuth/Cloudflare secrets unchanged.

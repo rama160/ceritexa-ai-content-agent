@@ -1,5 +1,5 @@
 # AI START HERE — Ceritexa canonical rules
-Version 1.2.2 — 2026-10-25
+Version 1.3.0 — 2026-10-25
 
 1. Always read this file, PHASE.md, CHANGELOG.md, PRD.md and ARSITEKTUR.md before work.
 2. Edit existing owner modules rather than writing similar/duplicate files; do not add suffixes *_fixed, *_new, _v2.
@@ -31,3 +31,10 @@ Version 1.2.2 — 2026-10-25
 
 25. Editorial topic selection is canonical in src/core.js: EDITORIAL_TOPICS, CHANNEL_KEYWORDS, score() and selectDraftTopic(). Do not use unrelated RSS trending headlines for YouTube Heros/Panex; irrelevant trending titles must use channel-specific original story fallback. Manual owner-entered topics always take priority unless blocked by safety policy.
 26. Pilot verification 2026-10-26: Cloudflare D1 and audit logs show Worker DRAFT_CREATED events for Facebook TEXT and Heros VIDEO; Heros art draft is BLOCKED/VIDEO_RENDER_REQUIRED pending video-render workflow. Do not claim a complete video exists until MP4 is present. User independently confirmed all three official channel identities verified=true. OAuth provider test does not equal publish E2E.
+
+27. Dashboard logo uses owner's supplied Ceritexa artwork embedded ONCE as CERITEXA_LOGO in the existing src/index.js. Do not create duplicate branding files or use a stock logo.
+28. Canonical review routes in src/index.js: authenticated GET /api/preview/:id; POST /api/posts/:id/preview, /api/posts/:id/reject, and /api/posts/:id/regenerate, plus original edit/approve/schedule/upload handlers. No duplicate controllers.
+29. Review metadata ONLY in migrations/0002_review_feedback.sql: draft_reviews (post_id, parent_id, revision_depth, rejection_reason, rejection_note, regen_state, preview_media_key, last_error). Migration is idempotent and old posts remain untouched.
+30. On rejection preserve old post in REJECTED state, record feedback, generate a distinct child based on the original topic with creativeSimilarity, maximum three child revisions. If model generation fails, report FAILED and allow explicit retry only. Never auto-approve or publish any regenerated content.
+31. TEXT, PHOTO, COMIC and VIDEO all attempt AI image previews on creation; old drafts can request an artwork via existing preview endpoint. AI media is privately stored in Ceritexa KV; fallback uses owner's actual logo. Preserve preview_media_key when a VIDEO draft's media_key becomes MP4.
+32. Only Ceritexa Worker resources and secrets may be touched; ALLOW_PUBLICATION=false remains mandatory throughout pilot testing.

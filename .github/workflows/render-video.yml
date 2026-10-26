@@ -17,12 +17,30 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Verify renderer code (no live accounts)
+        run: |
+          python -m py_compile tools/render_video.py
+          python tools/render_video.py --self-test
+      - name: Validate Ceritexa GitHub secret
+        env:
+          CERITEXA_ADMIN_TOKEN: ${{ secrets.CERITEXA_ADMIN_TOKEN }}
+        shell: bash
+        run: |
+          if [ ${#CERITEXA_ADMIN_TOKEN} -lt 24 ]; then
+            echo "::error::CERITEXA_ADMIN_TOKEN GitHub Actions secret is missing or too short. Compare with ADMIN_TOKEN on the Ceritexa Worker."
+            exit 1
+          fi
+          echo "Ceritexa renderer secret is configured (value not printed)."
       - name: Install free offline video toolchain
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg espeak-ng fonts-dejavu-core
-      - name: Render video only to owner-review queue
+          ffmpeg -version | head -n 1
+          espeak-ng --voices | grep -E '(^Pty|[[:space:]]id[[:space:]])' | head -n 8
+      - name: Render and VERIFY MP4 upload to Ceritexa D1
         env:
           CERITEXA_WORKER_URL: https://ceritexa-content-agent.finchat-ai-gateway.workers.dev
           CERITEXA_ADMIN_TOKEN: ${{ secrets.CERITEXA_ADMIN_TOKEN }}
-        run: python tools/render_video.py
+          PYTHONUNBUFFERED: "1"
+        run: |
+          python tools/render_video.py

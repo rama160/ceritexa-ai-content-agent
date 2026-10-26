@@ -1,5 +1,5 @@
 # AI START HERE — Ceritexa canonical rules
-Version 1.7.0 — 2026-10-26
+Version 1.7.1 — 2026-10-26
 
 1. Always read this file, PHASE.md, CHANGELOG.md, PRD.md and ARSITEKTUR.md before work.
 2. Edit existing owner modules rather than writing similar/duplicate files; do not add suffixes *_fixed, *_new, _v2.
@@ -92,3 +92,8 @@ Version 1.7.0 — 2026-10-26
 80. Session hash must be SHA-256(ADMIN_TOKEN+':'+opaqueCookie) so a Cloudflare ADMIN_TOKEN rotation invalidates previously issued sessions. Existing GitHub Actions Bearer ADMIN_TOKEN calls continue to work untouched. Cookie-based POST requires X-Ceritexa-Request:dashboard AND matching Origin when supplied to deter CSRF; cookie sessions never authorize cross-origin requests. Login rate-limited using hashed client identifier. No new paid service or secret.
 81. Single page remains a private owner dashboard, but HTML shell and icons are public installable PWA. No private API response, auth cookie, media object or user data is cached by service worker; shell cache bumped to ceritexa-public-shell-v1.7.0. Do not change Nusa Penida Experiences, Spenva/Finchat, OpenClaw IDX, or their Cloudflare bindings.
 82. Validation before production: 36/36 in-process regression/mocked tests passed including cookie login, two refresh-like /api/auth/me calls, logout revocation, CSRF failure and GitHub bearer compatibility. Live isolated Cloudflare deployment API returned HTTP 200 and management API verified latest serving 100%, all 6 secrets intact, 2 Cron jobs unchanged, ALLOW_PUBLICATION=false. Browser-side authentication on user's actual phone cannot be confirmed without user login; don't claim that as verified.
+
+83. v1.7.1 owner persistent-session UX: Failed fetch or temporary offline network MUST NOT be treated as invalid authentication or logout. Existing src/index.js PWA shows a separate "Koneksi terputus" panel while preserving the HttpOnly session cookie. Retry manually or on the browser online event. Explicit authenticated:false from /api/auth/me requires login.
+84. The PWA must NOT report Logout success until POST /api/auth/logout returns HTTP success with authenticated:false and a revoked cookie. Failed logout must keep dashboard state and show an error; browser scripts cannot destroy an HttpOnly cookie. Do not add insecure client token storage, duplicate login modules, or new cookies.
+85. Continue one source of truth: src/index.js with approved mobile-first Home/Draft/Analitik/Tren, tests/core.test.js, migrations/0005_owner_sessions.sql. Offline shell may load without network but private draft data/API remain uncached; do not claim full offline account access.
+86. CI must test reconnect, explicit server-confirmed logout, repeated /api/auth/me, CSRF and GitHub Bearer compatibility. Verify latest Ceritexa Worker serves 100% traffic, publication OFF and 6 secrets intact. Real owner-device login remains an owner acceptance check.

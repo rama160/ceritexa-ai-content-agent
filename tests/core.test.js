@@ -206,3 +206,32 @@ test('dashboard pwa install UI and routes remain independent of authorization',(
   assert.match(responses[5].headers.get('Content-Security-Policy'),/worker-src 'self'/);
  });
 });
+
+test('media view modal shows image or video with correct CSP and Android-friendly controls',async()=>{
+ const core=readFileSync(new URL('../src/core.js',import.meta.url),'utf8').replace(/^export /gm,'');
+ const idx=readFileSync(new URL('../src/index.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/,'').replace(/^export /gm,'').replace('default{','const __worker={');
+ const app=new Function(core+'\n'+idx+'\nreturn __worker;')();
+ const response=await app.fetch(new Request('https://ceritexa.test/',{method:'GET'}),{});
+ const html=await response.text();
+ assert.match(response.headers.get('Content-Security-Policy'),/media-src 'self' blob:/);
+ assert.match(html,/id="mediaDialog"/);
+ assert.match(html,/id="mediaDialogClose"/);
+ assert.match(html,/id="mediaDialogStatus"/);
+ assert.match(html,/id="mediaDialogContent"/);
+ assert.match(html,/data-media-type/);
+ assert.match(html,/Putar video MP4/);
+ assert.match(html,/MP4 belum siap/);
+ assert.match(html,/dialog\.showModal\(\)/);
+ assert.match(html,/item\.playsInline=true/);
+ assert.match(html,/item\.controls=true/);
+ assert.match(html,/URL\.revokeObjectURL\(activeMediaUrl\)/);
+ assert.ok(!html.includes('window.open('));
+});
+test('all currently unrendered VIDEO draft buttons show illustration status, not Play',()=>{
+ const core=readFileSync(new URL('../src/core.js',import.meta.url),'utf8').replace(/^export /gm,'');
+ const idx=readFileSync(new URL('../src/index.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/,'').replace(/^export /gm,'').replace('default{','const __worker={');
+ const setup=new Function(core+'\n'+idx+'\nreturn {page};')();
+ assert.match(setup.page,/MP4 belum siap/);
+ assert.match(setup.page,/VIDEO_RENDER_REQUIRED/);
+ assert.match(setup.page,/github\.com\/rama160\/ceritexa-ai-content-agent\/actions\/workflows\/render-video\.yml/);
+});

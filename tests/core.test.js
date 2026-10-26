@@ -79,22 +79,22 @@ test('Worker single module and authenticated preview/reject routes parse',()=>{
  assert.match(original,/\/api\/preview\//);
  assert.match(original,/async function rejectDraft/);
  assert.match(original,/async function retryRegeneration/);
- assert.match(original,/data-reject/);
- assert.match(original,/id="brandLogo"/);
+ assert.match(original,/async function loginOwner/);
+ assert.match(original,/\/api\/auth\/me/);
 });
 
 test('review UI includes cover generation, reject reason and retry pathway',()=>{
  const src=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
  const migration=readFileSync(new URL('../migrations/0002_review_feedback.sql',import.meta.url),'utf8');
- assert.match(src,/data-gencover/);
+ assert.match(src,/async function regenerateCover/);
  assert.match(src,/async function regenerateCover/);
  assert.match(src,/async function rejectDraft/);
  assert.match(src,/async function retryRegeneration/);
  assert.match(src,/regen_state='FAILED'/);
  assert.match(src,/state='REJECTED'/);
  assert.match(src,/async function saveAIArtwork/);
- assert.match(src,/data-poster/);
- assert.match(src,/id="brandLogo"/);
+ assert.match(src,/case 'reject':/);
+ assert.match(src,/case 'submit-reject':/);
  assert.match(migration,/CREATE TABLE IF NOT EXISTS draft_reviews/);
  assert.match(migration,/INSERT OR IGNORE INTO draft_reviews/);
 });
@@ -198,7 +198,8 @@ test('dashboard pwa install UI and routes remain independent of authorization',(
   assert.match(responses[4].headers.get('Content-Type'),/image\/jpeg/);
   const html=await responses[5].text();
   assert.match(html,/beforeinstallprompt/);
-  assert.match(html,/id="installPwa"/);
+  assert.match(html,/data-page="home"/);
+  assert.match(html,/id="cxView"/);
   assert.match(html,/rel="manifest"/);
   assert.match(html,/serviceWorker\.register/);
   const protectedResponse=await get('/api/posts');
@@ -207,33 +208,36 @@ test('dashboard pwa install UI and routes remain independent of authorization',(
  });
 });
 
-test('media view modal shows image or video with correct CSP and Android-friendly controls',async()=>{
+test('review modal renders protected MP4 and private image with approved owner controls',async()=>{
  const core=readFileSync(new URL('../src/core.js',import.meta.url),'utf8').replace(/^export /gm,'');
  const idx=readFileSync(new URL('../src/index.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/,'').replace(/^export /gm,'').replace('default{','const __worker={');
  const app=new Function(core+'\n'+idx+'\nreturn __worker;')();
- const response=await app.fetch(new Request('https://ceritexa.test/',{method:'GET'}),{});
- const html=await response.text();
- assert.match(response.headers.get('Content-Security-Policy'),/media-src 'self' blob:/);
- assert.match(html,/id="mediaDialog"/);
- assert.match(html,/id="mediaDialogClose"/);
- assert.match(html,/id="mediaDialogStatus"/);
- assert.match(html,/id="mediaDialogContent"/);
- assert.match(html,/data-media-type/);
- assert.match(html,/Putar video MP4/);
- assert.match(html,/MP4 belum siap/);
- assert.match(html,/dialog\.showModal\(\)/);
- assert.match(html,/item\.playsInline=true/);
- assert.match(html,/item\.controls=true/);
- assert.match(html,/URL\.revokeObjectURL\(activeMediaUrl\)/);
+ const res=await app.fetch(new Request('https://ceritexa.test/'),{});
+ const html=await res.text();
+ assert.match(res.headers.get('Content-Security-Policy'),/media-src 'self' blob:/);
+ assert.match(html,/id="modalBackdrop"/);
+ assert.match(html,/id="modalContent"/);
+ assert.match(html,/data-page="home"/);
+ assert.match(html,/data-page="draft"/);
+ assert.match(html,/data-page="analytics"/);
+ assert.match(html,/data-page="trends"/);
+ assert.match(html,/source src=.*\/api\/media\//);
+ assert.match(html,/playsinline/);
+ assert.match(html,/case 'approve':/);
+ assert.match(html,/case 'reject':/);
+ assert.match(html,/case 'storyboard':/);
  assert.ok(!html.includes('window.open('));
 });
-test('all currently unrendered VIDEO draft buttons show illustration status, not Play',()=>{
+
+test('video draft review never offers approve while blocked and uses real MP4 media route',()=>{
  const core=readFileSync(new URL('../src/core.js',import.meta.url),'utf8').replace(/^export /gm,'');
  const idx=readFileSync(new URL('../src/index.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/,'').replace(/^export /gm,'').replace('default{','const __worker={');
- const setup=new Function(core+'\n'+idx+'\nreturn {page};')();
- assert.match(setup.page,/MP4 belum siap/);
- assert.match(setup.page,/Render melalui/);
- assert.match(setup.page,/github\.com\/rama160\/ceritexa-ai-content-agent\/actions\/workflows\/render-video\.yml/);
+ const html=new Function(core+'\n'+idx+'\nreturn page;')();
+ assert.match(html,/x.state!=='PENDING_REVIEW'\?'disabled'/);
+ assert.match(html,/\/api\/media\//);
+ assert.match(html,/Buat storyboard/);
+ assert.match(html,/Render ulang/);
+ assert.match(html,/case 'upgrade'/);
 });
 
 test('renderer cannot report COMPLETED unless MP4 has been verified in D1',async()=>{
@@ -272,8 +276,8 @@ test('renderer failures are explicit and live card distinguishes MP4 from JPEG',
  const workflow=readFileSync(new URL('../.github/workflows/render-video.yml',import.meta.url),'utf8');
  assert.match(src,/RENDER_FAILED/);
  assert.match(src,/render_event/);
- assert.match(src,/playOverlay=isMp4/);
- assert.match(src,/data-media-label="Putar video MP4"/);
+ assert.match(src,/p.media_type==='video\/mp4'/);
+ assert.match(src,/case 'preview':showPreview/);
  assert.match(py,/def verify_upload/);
  assert.match(py,/def verify_mp4/);
  assert.match(py,/sys\.exit\(main\(\)\)/);
@@ -307,8 +311,8 @@ test('storyboard routes and opt-in video upgrade never auto-publish',()=>{
  assert.match(src,/async function storyboard\(/);
  assert.match(src,/async function storyboardImage\(/);
  assert.match(src,/async function upgradeVideo\(/);
- assert.match(src,/data-upgradevideo/);
- assert.match(src,/data-storyboard/);
+ assert.match(src,/case 'upgrade':/);
+ assert.match(src,/case 'storyboard':/);
  assert.match(src,/existingVideoPreserved:true/);
  assert.match(migration,/CREATE TABLE IF NOT EXISTS video_storyboard/);
  assert.match(migration,/PRIMARY KEY\(post_id, scene_index\)/);
@@ -409,16 +413,16 @@ test('adaptive storyboard generation batches preserve progress and remain idempo
  assert.match(mediaRes.headers.get('Content-Type'),/image\/jpeg/);
 });
 
-test('storyboard gallery keeps scene images private and cleans up blob URLs',()=>{
+test('storyboard gallery fetches privately through authenticated same-origin cookie and never localStorage',()=>{
  const src=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
- assert.match(src,/async function openStoryboardGallery/);
- assert.match(src,/data-viewscenes/);
- assert.match(src,/scene\.previewPath/);
- assert.match(src,/Authorization:'Bearer '\+token/);
- assert.match(src,/activeSceneUrls\.push/);
- assert.match(src,/activeSceneUrls\)URL\.revokeObjectURL/);
+ assert.match(src,/async function storyboardImage/);
+ assert.match(src,/async function showScenes/);
  assert.match(src,/scene-gallery/);
- assert.match(src,/Gerakan kamera|gerakan kamera/);
+ assert.match(src,/escapeHTML\(x\.previewPath\)/);
+ assert.match(src,/credentials:'same-origin'/);
+ assert.match(src,/secure|Secure/);
+ assert.match(src,/cookieValue/);
+ assert.ok(!src.includes('localStorage.setItem'));
 });
 
 test('scene count responds to narrative pacing, action and transitions without fixed 4',()=>{
@@ -492,4 +496,35 @@ test('versioned MP4 upload keeps previous videos and never rolls back approved s
  const stale=await app.fetch(request(),env);assert.equal(stale.status,400);
  assert.equal(post.state,'APPROVED');assert.equal(post.media_key,key2);
  assert.ok(recorded.length>=2);
+});
+
+test('approved Ceritexa v3 is real four-page, hiding rejected drafts and no integration clutter',()=>{
+ const c=readFileSync(new URL('../src/core.js',import.meta.url),'utf8').replace(/^export /gm,'');
+ const i=readFileSync(new URL('../src/index.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/,'').replace(/^export /gm,'').replace('default{','const __worker={');
+ const page=new Function(c+'\n'+i+'\nreturn page;')();
+ const inline=page.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+ assert.ok(inline);assert.doesNotThrow(()=>new vm.Script(inline));
+ for(const nav of ['home','draft','analytics','trends'])assert.match(page,new RegExp('data-page="'+nav+'"'));
+ assert.match(page,/Perlu review/);assert.match(page,/Disetujui/);
+ assert.match(page,/x\.state==='PENDING_REVIEW'\|\|x\.state==='BLOCKED'/);
+ assert.match(page,/case 'submit-reject':/);
+ assert.match(page,/p\.state==='APPROVED'/);
+ assert.ok(!page.includes('Kesiapan Integrasi'));
+ assert.match(page,/\/api\/auth\/me/);
+ assert.match(page,/\/api\/auth\/logout/);
+ assert.ok(!page.includes('localStorage'));
+});
+test('additive hashed session storage and CSRF defenses preserve GitHub bearer contract',()=>{
+ const migration=readFileSync(new URL('../migrations/0005_owner_sessions.sql',import.meta.url),'utf8');
+ const src=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
+ assert.match(migration,/CREATE TABLE IF NOT EXISTS admin_sessions/);
+ assert.match(migration,/CREATE TABLE IF NOT EXISTS admin_login_limits/);
+ assert.match(src,/crypto\.subtle\.digest\('SHA-256'/);
+ assert.match(src,/HttpOnly; Secure; SameSite=Strict/);
+ assert.match(src,/sameOriginMutation/);
+ assert.match(src,/const bearerOk/);
+ assert.match(src,/await readOwnerSession/);
+ assert.match(src,/DELETE FROM admin_sessions WHERE session_hash=/);
+ assert.match(src,/\/api\/editor-config/);
+ assert.ok(!src.includes("localStorage.setItem"));
 });

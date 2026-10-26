@@ -88,3 +88,8 @@ Tests + build green, Cloudflare bound and deploy, admin denied without token, po
 - Manifest must expose canonical id/scope/start_url=/, names, theme/background, standalone display, and 192/512 scalable branded icons with raster fallback.
 - Offline scope limited to PUBLIC application shell, logo, manifest and icons. No offline draft viewing, approval, rejection, upload, scheduling, or API caching. Admin token remains memory-only and must be entered again on reopening.
 - Preserve owner approval, review cards, image preview, rejected originals, draft feedback, and ALLOW_PUBLICATION=false.
+
+## v1.4.2 — MP4 completion acceptance
+- Green GitHub Actions status requires confirmed MP4 upload and D1 post state=PENDING_REVIEW/media_type=video/mp4. Renderer failure must produce nonzero process exit.
+- Renderer must verify video and audio, H264 codec, vertical MP4 and size, preserve story, and only accept a correct upload acknowledgement. Show renderer errors on the actual PWA draft.
+- Static JPEG cover remains a thumbnail; actual MP4 gives an obvious ▶ Putar MP4 button. No public publishing and owner approval remains necessary.

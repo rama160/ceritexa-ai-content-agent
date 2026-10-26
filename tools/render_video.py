@@ -361,6 +361,35 @@ def main():
         print("Renderer self-test PASS")
         return 0
 
+    if "--self-test-media" in sys.argv:
+        # Fully offline encoder smoke. Validates the exact production FFmpeg graph
+        # across two different scene counts without making real AI/provider calls.
+        colors = ["red", "blue", "green", "yellow", "magenta", "cyan", "orange"]
+        for count in (3, 7):
+            with tempfile.TemporaryDirectory() as work:
+                folder = Path(work)
+                scenes = [{"beat": "Tokoh memasuki babak konflik dan memilih keberanian"} for _ in range(count)]
+                pictures = []
+                for index, color in enumerate(colors[:count]):
+                    path = folder / f"scene-{index:02}.jpg"
+                    command("ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi",
+                            "-i", f"color=c={color}:s=600x1068:r=1",
+                            "-frames:v", "1", str(path))
+                    pictures.append(path)
+                seconds = 12.0 if count == 3 else 14.0
+                voice = folder / "synthetic-voice.wav"
+                command("ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi",
+                        "-i", f"sine=frequency=240:duration={seconds}",
+                        "-ac", "1", "-ar", "24000", str(voice))
+                subtitles = folder / "synthetic-caption.srt"
+                create_subtitles("Cerita uji orisinal memiliki awal konflik aksi dan akhir penuh harapan", seconds, subtitles)
+                mp4 = folder / "smoke.mp4"
+                size = encode_motion_movie(pictures, scenes, voice, subtitles, seconds, mp4)
+                details = probe_json(mp4)
+                assert len([stream for stream in details["streams"] if stream["codec_type"] == "video"]) == 1
+                print(f"OFFLINE MEDIA SMOKE PASS: {count} distinct scenes; MP4 H264/AAC; {size} bytes")
+        return 0
+
     if not TOKEN or len(TOKEN) < 24:
         summary(["❌ GitHub Secret CERITEXA_ADMIN_TOKEN is absent or too short.",
                  "Set it in this repo only: Settings → Secrets and variables → Actions. Match Cloudflare ceritexa-content-agent ADMIN_TOKEN."])

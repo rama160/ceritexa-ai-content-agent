@@ -1,4 +1,4 @@
-# ARSITEKTUR 1.6.0 — Ceritexa Studio
+# ARSITEKTUR 1.6.1 — Ceritexa Studio
 Single isolated Cloudflare Worker `ceritexa-content-agent`, D1 `ceritexa-content-db`. Optional private R2 `ceritexa-content-media` after owner enables storage.
 
 ```mermaid
@@ -88,3 +88,9 @@ Cloudflare Cron 00:00 UTC (08:00 WITA) executes metrics refresh, strategy assess
 - Existing src/index.js storyboard POST creates at most 3 new AI images per call, allows continuation and reports progress (plannedCount, sceneCount, remaining, ready, stale, dailyLimitReached). Daily extra image budget 12 may postpone progress without shortening narrative; changed scripts cause owner-requested replan retaining KV media objects.
 - Existing GitHub tools/render_video.py repeatedly builds missing storyboard images in batches, requires plannedCount unique private JPEGs, assigns each scene a spoken-word-weighted share of actual neural voice duration and composes a variable FFmpeg zoompan/fade/concat graph. Upload and D1 verification remain required for success.
 - Existing PWA card and gallery show X/Y planned shots, unfinished status and no false claim of completion. Approved/published content and Cloudflare accounts for other projects are unaffected. ALLOW_PUBLICATION=false.
+
+## v1.6.1 — Immutable media objects, CAS state transitions and one-click storyboard
+- Existing Worker upload(e,id,req) stores new JPEG/PNG/MP4 under private owner/<id>/<fresh UUID>.<ext> instead of overwriting owner/<id>.mp4. It then CAS-updates posts only when current state remains BLOCKED/PENDING_REVIEW; if owner already approved/scheduled, return conflict without altering their state.
+- Existing PWA's storyboard button loops at most nine bounded Worker POSTs (three images each), shows created/planned and quota state, and reloads cards; no new frontend module or separate service.
+- GitHub renderer's existing --self-test-media runs actual FFmpeg synthesis with 3 and 7 synthetic scenes before real production, checking video H264, audio and frame orientation without consuming Workers AI quotas.
+- Production E2E verification: isolated UJI INTERNAL Panex draft (96 Indonesian words) generated eight frames, native neural id-ID-GadisNeural narration and video/mp4 ~4.40MB via GitHub Actions; review and publishing gate unchanged. Second rerender is used to verify non-destructive new key generation.

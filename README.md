@@ -1,4 +1,4 @@
-# Ceritexa AI Content Agent — v1.2.1
+# Ceritexa AI Content Agent — v1.2.2
 
 An isolated Cloudflare Worker and GitHub Actions project for:
 - **Ceritexa Studio** (Facebook Page, text/photo/comic)
@@ -127,3 +127,10 @@ Ceritexa's public branding site now lives in this repository's **single canonica
 7. Google Auth Platform → Audience → Publish app / In production when available; branding verification and sensitive-scope review may remain separate checks, and YouTube private upload/API audit restrictions can still apply. The authorization flow must be re-run if previously issued Testing refresh tokens are expired or scope-incomplete.
 
 **Current status:** public page source committed; GitHub Pages activation and external HTTP accessibility **not verified**. Never paste tokens into these static files. This documentation-only change must not update Cloudflare Worker bindings or any unrelated repo.
+
+## Draft generation verified — 26 October 2026
+- Ceritexa D1 contained three Facebook TEXT drafts (PENDING_REVIEW) and one Heros VIDEO artwork draft (BLOCKED / VIDEO_RENDER_REQUIRED). Independent audit records showed DRAFT_CREATED for recent Worker calls, proving AI story-generation and persistence. These are drafts only, **not published**.
+- The channel owner's dashboard showed facebook, panex and heros identity tests with verified=true. This verifies provider identity connectivity, not posting permissions through a real provider write request.
+- The original selector allowed an unrelated trending Bundesliga leaderboard topic to influence Heros and Facebook fiction. Version 1.2.2 fixes this by matching each trend to channel editorial keywords, otherwise using owner-approved original editorial topic seeds. Previously created off-topic drafts remain in review and should be edited or left unapproved.
+- Manual smoke test: Dashboard → channel Facebook Ceritexa → format TEXT → enter your own original story topic → Buat draft once. Expected: a new `PENDING_REVIEW` entry with title, caption, 150–220 word narrative, without posting or scheduling. Then test PHOTO, COMIC and video renderer separately.
+- Deployment of v1.2.2 verified through Cloudflare management API: latest Worker revision is 100% live, all six previously configured secrets (admin, Facebook, and Google credentials) remain in place, `ALLOW_PUBLICATION=false`, and both scheduled triggers remain. External platform publishing E2E is still pending.

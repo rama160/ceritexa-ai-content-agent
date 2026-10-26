@@ -61,7 +61,7 @@ export async function makeDraft(e,channel,format,topic,options={}){
    try{
     const result=await e.AI.run(model,{
      messages:[{role:'system',content:'Write ORIGINAL Indonesian fiction. Return ONLY valid JSON with title,story,caption,imagePrompt.'},
-               {role:'user',content:aiPrompt(channel,format,selected,feedback+(attempt?' IMPORTANT: Previous revised proposal was insufficiently different. Write a completely new original narrative approach.':'')}],
+               {role:'user',content:aiPrompt(channel,format,selected,feedback+(attempt?' IMPORTANT: Previous revised proposal was insufficiently different. Write a completely new original narrative approach.':'') )}],
      max_tokens:1900,temperature:Math.min(0.8,0.45+attempt*0.14),
      ...(model===mtext?{chat_template_kwargs:{enable_thinking:false}}:{})
     });

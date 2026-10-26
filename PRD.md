@@ -1,4 +1,4 @@
-# PRD — Ceritexa AI Content Agent 1.2.1
+# PRD — Ceritexa AI Content Agent 1.2.2
 Tanggal: 25 Oktober 2026 | Status: IMPLEMENTASI BERTAHAP
 
 ## Produk, pemilik dan batasan
@@ -54,16 +54,22 @@ Video otomatis lengkap, integrasi produksi, dan analytics resmi belum dianggap s
 ## Acceptance
 Tests + build green, Cloudflare bound and deploy, admin denied without token, post drafts created, rights approved, one FB publish test, one YouTube private test per channel, analytics fetched, Pause All works, no repeated posting.
 
-## v1.2.1 — Implemented pilot additions and limits
+## v1.2.2 — Implemented pilot additions and limits
 - Original AI video draft generates a still image; GitHub Actions renderer composes image, offline Indonesian speech and subtitles into a <8MB MP4. The owner still reviews before approval. Actions requires CERITEXA_ADMIN_TOKEN GitHub secret and can have schedule delays.
 - Adaptive editorial planning evaluates actual post engagement per distinct channel and suggests top-performing subject only after >=3 published posts with recorded metrics. It cannot autonomously change brand, buy services, change OAuth scopes or delete posts.
 - The automated daily draft rotation is split between Ceritexa Facebook TEXT/PHOTO/COMIC, Panex VIDEO and Heros VIDEO, with hard monthly quota. Deployed Cloudflare setting now allows daily draft-only rotation; public publication remains disabled and owner must explicitly approve every item.
 - Provider OAuth integrations, Facebook Reels uploader, real YouTube public posting, final analytics and monetization remain external acceptance gates. Never represent them as verified or guaranteed.
 - R2 unavailable: KV file fallback is used only for pilot media <=8MB, not large-scale production.
 
-## v1.2.1 acceptance addendum
+## v1.2.2 acceptance addendum
 - Dashboard exposes readiness of bindings/credentials separately from live connection identity checks. Readiness never reveals secrets or claims untested authorization.
 - Facebook Page ID and returned Page name must represent Ceritexa Studio; disallow posting to other Pages such as Nusa Penida Experiences even if a token is mistakenly configured.
 - YouTube must verify distinct OAuth channel IDs for Panex and Heros, and upload PRIVATE in pilot.
 - Shorts stories 95–125 words; rendering fails safely if duration >59 seconds rather than clipping endings.
 - CI smoke verifies protected routes reject anonymous requests; this is separate from unit tests and only runs on manually triggered workflow when owner provides GitHub Action secret.
+
+## 2026-10-26 — Pilot draft editorial quality gate
+- Channel-aligned topic selection: a global trend is never automatically inserted into an unrelated original fiction category. Text matching for relevance is deliberately conservative and falls back to editorial evergreen seeds appropriate for each of the three brands.
+- Priorities: explicit owner topic > channel-aligned strategy suggestion supported by metrics > channel-relevant RSS topic > channel-specific original story seed.
+- Existing off-topic drafts are not deleted or automatically published; owner may edit or reject them in pending review. For new drafts, use the updated policy.
+- Acceptance proof: Cloudflare D1 audit contains DRAFT_CREATED for real Worker calls; public posting remains disabled and YouTube VIDEO requires human review and MP4 rendering.

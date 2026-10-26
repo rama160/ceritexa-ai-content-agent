@@ -98,3 +98,58 @@ test('review UI includes cover generation, reject reason and retry pathway',()=>
  assert.match(migration,/CREATE TABLE IF NOT EXISTS draft_reviews/);
  assert.match(migration,/INSERT OR IGNORE INTO draft_reviews/);
 });
+
+test('mocked Worker reject-to-regenerate retains original, creates one linked replacement and blocks double rejection',async()=>{
+ const core=readFileSync(new URL('../src/core.js',import.meta.url),'utf8').replace(/^export /gm,'');
+ const idx=readFileSync(new URL('../src/index.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/,'').replace(/^export /gm,'').replace('default{','const __worker={');
+ const app=new Function(core+'\n'+idx+'\nreturn __worker;')();
+ const id='11111111-1111-4111-8111-111111111111',posts=new Map(),reviews=new Map(),auditRows=[];
+ const now=new Date().toISOString();
+ posts.set(id,{id,channel:'facebook',format:'TEXT',title:'Ibu di Warung',story:'Seorang ibu menjalani hari di warungnya dan berharap keluarganya hidup bahagia. '.repeat(12),caption:'Cerita tentang seorang ibu',topic:'Perjuangan ibu pekerja keras',image_prompt:'A small Indonesian stall',media_key:null,media_type:null,state:'PENDING_REVIEW',license_ok:0,risk_note:'',created_at:now,updated_at:now});
+ reviews.set(id,{post_id:id,revision_depth:0,regen_state:'NONE'});
+ const result=changes=>({meta:{changes}});
+ function query(sql,a,type){
+  const q=sql.toLowerCase();
+  if(type==='first'){
+   if(q.includes('select * from posts where id'))return posts.get(a[0])||null;
+   if(q.includes('select revision_depth,regen_state from draft_reviews'))return reviews.get(a[0])||null;
+   if(q.includes('select count(*) n from posts'))return {n:posts.size};
+   return null;
+  }
+  if(type==='all')return {results:[]};
+  if(q.startsWith('insert into audit')){auditRows.push(a);return result(1);}
+  if(q.includes("update posts set state='rejected'")){
+   const p=posts.get(a[1]);if(!p||p.state==='REJECTED')return result(0);
+   p.state='REJECTED';return result(1);
+  }
+  if(q.startsWith('insert or ignore into draft_reviews')){if(!reviews.has(a[0]))reviews.set(a[0],{post_id:a[0],revision_depth:a[1],regen_state:'NONE'});return result(1);}
+  if(q.includes('update draft_reviews set rejection_reason')){Object.assign(reviews.get(a[4]),{rejection_reason:a[0],rejection_note:a[1],regen_state:a[2]});return result(1);}
+  if(q.startsWith('insert into posts')){
+   const keys=sql.match(/posts\(([^)]+)\)/i)[1].split(',');
+   posts.set(a[0],Object.fromEntries(keys.map((key,i)=>[key.trim(),a[i]])));return result(1);
+  }
+  if(q.startsWith('insert into draft_reviews')){reviews.set(a[0],{post_id:a[0],parent_id:a[1],revision_depth:a[2],regen_state:'NONE'});return result(1);}
+  if(q.includes("update draft_reviews set regen_state='done'")){reviews.get(a[1]).regen_state='DONE';return result(1);}
+  if(q.includes("update draft_reviews set regen_state='failed'")){reviews.get(a[2]).regen_state='FAILED';return result(1);}
+  throw Error('Unmocked SQL '+sql.slice(0,70));
+ }
+ const env={ADMIN_TOKEN:'A_TEST_ONLY_LONG_NONPRODUCTION_TOKEN_123456',MONTHLY_DRAFT_LIMIT:'24',ALLOW_PUBLICATION:'false',AI:{run:async()=>({response:JSON.stringify({
+  title:'Surat Cahaya di Tepi Sawah',story:Array.from({length:112},(_,i)=>['Hujan','membawa','pesan','rahasia','kepada','guru','desa','dan','tetangga','membantu','membuka','jalan','baru','untuk','keluarga'][i%15]).join(' '),
+  caption:'Kisah baru mengenai harapan dan keberanian',imagePrompt:'Original warm cinematic village scene'
+ })})},DB:{prepare(sql){return {bind(...a){return {first:async()=>query(sql,a,'first'),all:async()=>query(sql,a,'all'),run:async()=>query(sql,a,'run')}}}}}};
+ const request=()=>new Request('https://ceritexa.local/api/posts/'+id+'/reject',{method:'POST',headers:{Authorization:'Bearer '+env.ADMIN_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({reason:'Cerita kurang menyentuh',note:'Buat lebih emosional'})});
+ const response=await app.fetch(request(),env);
+ const data=await response.json();
+ assert.equal(response.status,200);
+ assert.equal(data.regenerated,true);
+ assert.equal(posts.get(id).state,'REJECTED');
+ assert.equal(reviews.get(id).regen_state,'DONE');
+ assert.equal(reviews.get(data.replacement.id).parent_id,id);
+ assert.equal(reviews.get(data.replacement.id).revision_depth,1);
+ assert.equal(posts.get(data.replacement.id).state,'PENDING_REVIEW');
+ assert.equal(posts.size,2);
+ const duplicate=await app.fetch(request(),env);
+ assert.equal(duplicate.status,400);
+ assert.equal(posts.size,2);
+ assert.ok(auditRows.length>=2);
+});

@@ -46,6 +46,9 @@ jobs:
           edge-tts --list-voices | grep -E 'id-ID-(Ardi|Gadis)Neural' | head -n 2
           echo "Neural TTS uses an online unofficial Edge endpoint; errors fail closed (no robotic fallback)."
 
+      - name: Offline end-to-end FFmpeg smoke (3 and 7 narrative scenes)
+        run: python tools/render_video.py --self-test-media
+
       - name: Render adaptive story scenes, neural narration and verify MP4
         env:
           CERITEXA_WORKER_URL: https://ceritexa-content-agent.finchat-ai-gateway.workers.dev

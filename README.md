@@ -1,4 +1,4 @@
-# Ceritexa AI Content Agent — v1.7.0
+# Ceritexa AI Content Agent — v1.7.1
 
 An isolated Cloudflare Worker and GitHub Actions project for:
 - **Ceritexa Studio** (Facebook Page, text/photo/comic)
@@ -251,3 +251,8 @@ The Ceritexa Studio dashboard now uses four pages: **Home** (review priorities, 
 The original GitHub Actions renderer uses its existing CERITEXA_ADMIN_TOKEN Bearer header and is not affected by the dashboard session. Stored draft/post/media data, publication OFF, Cloudflare AI, KV, D1, and Cron remain untouched. Only dedicated Worker and additive D1 session tables were changed.
 
 **Deployment scope:** ceritexa-content-agent (100% latest Worker); six original Cloudflare secrets preserved, two Crons intact, ALLOW_PUBLICATION=false. 36/36 in-process JS regression tests pass. Testing owner login with a real phone/browser remains the last user acceptance check.
+
+### v1.7.1 — Koneksi internet terputus bukan logout
+Saat PWA dimuat ulang tanpa koneksi internet, dashboard menampilkan "Koneksi terputus" dan menawarkan tombol "Coba hubungkan ulang". Cookie login tetap aman dan akan dicoba lagi otomatis saat perangkat kembali online. Data pribadi tidak disimpan offline dan baru ditampilkan setelah jaringan tersedia. Form login baru muncul jika Worker resmi menyatakan sesi tidak valid, bukan hanya karena internet terputus.
+
+Tombol Logout menunggu jawaban server. Jika koneksi gagal, dashboard tidak akan mengklaim pengguna sudah keluar; sambungkan internet dan ulangi Logout. Sesi bertahan pada refresh, PWA dibuka kembali, dan browser direstart, kecuali kedaluwarsa, token admin dirotasi, atau data browser dihapus.

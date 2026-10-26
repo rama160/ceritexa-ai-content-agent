@@ -585,3 +585,27 @@ test('owner login remains active through refresh, cannot CSRF mutate, and logout
  const after=await app.fetch(new Request(url('/api/auth/me'),{headers:{Cookie:cookie}}),env);
  assert.equal((await after.json()).authenticated,false);
 });
+
+test('offline network failures must not be misreported as logout; sign-out requires server acknowledgement',()=>{
+ const core=readFileSync(new URL('../src/core.js',import.meta.url),'utf8').replace(/^export /gm,'');
+ const idx=readFileSync(new URL('../src/index.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/,'').replace(/^export /gm,'').replace('default{','const __worker={');
+ const page=new Function(core+'\n'+idx+'\nreturn page;')();
+ const js=page.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+ assert.ok(js);
+ assert.doesNotThrow(()=>new vm.Script(js));
+ assert.match(js,/async function restoreSession\(/);
+ assert.match(js,/function showConnectionError\(/);
+ assert.match(js,/Sesi Ceritexa Anda tetap tersimpan/);
+ assert.match(js,/const r=await fetch\('\/api\/auth\/me'/);
+ assert.match(js,/if\(!d\.authenticated\)\{showLogin\(\);return;\}/);
+ assert.match(js,/if\(!connected&&\$\('cxLogin'\)&&!\$\('cxLogin'\)\.hidden\)return;/);
+ assert.match(js,/const response=await fetch\('\/api\/auth\/logout'/);
+ assert.match(js,/if\(!response\.ok\)throw Error\('Logout belum berhasil/);
+ assert.match(js,/if\(data\.authenticated!==false\)throw Error/);
+ assert.match(js,/posts=\[\];metrics=\[\];events=\[\];trends=\[\];closeModal\(\);showLogin\(\);notice\('Anda telah logout'\)/);
+ assert.ok(!js.includes("finally{posts=[];metrics=[];events=[];trends=[]"));
+ assert.ok(!js.includes('localStorage'));
+ assert.match(page,/#cxOffline\[hidden\]/);
+ assert.match(page,/data-page="home"/);
+ assert.match(page,/data-page="analytics"/);
+});

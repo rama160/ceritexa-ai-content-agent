@@ -1,4 +1,4 @@
-# PHASE — Ceritexa AI Content Agent v1.6.0
+# PHASE — Ceritexa AI Content Agent v1.7.0
 Updated: 2026-10-26 (WITA). Source of truth: test evidence, not feature claims.
 
 | Phase | Status | Verifikasi |
@@ -150,3 +150,11 @@ Owner reports first three setup tasks completed. Remaining Facebook and two YouT
 
 ### Quota snapshot after final E2E (2026-10-26 UTC)
 - Existing audit records show 10 of the intentional 12 daily storyboard image-creation events consumed today (3 previously used + 7 from the internal production smoke); **2 further new scenes remain in the app's local safety budget** until its next UTC-date reset (08:00 WITA on 27 Oct). These events accurately reflect actual AI usage and MUST NOT be deleted merely to make a test appear free. Already created images were safely removed from KV when the internal test finished; keeping the audit maintains accounting integrity. Real owners may need to resume a larger storyboard the next day. This snapshot is not a guarantee of Cloudflare provider-level quota availability.
+
+## v1.7.0 — Approved v3 4-page dashboard and refresh-persistent owner session (2026-10-26)
+- Owner approved previously created interactive design v3. Existing src/index.js page migrated into production to show Home/Draft(Review and Disetujui)/Analitik/Tren, preserving responsive mobile/desktop style and actual server actions. REJECTED rows hidden from active list, never deleted.
+- Old readiness integration section, verify button and debug blocks removed from owner-facing interface; no backend integrations deleted. Analitik shows empty/unknown when no real metrics; in production, metrics table was empty at inspection. Trends use current data and manual refresh through existing endpoints.
+- One additive isolated D1 migration 0005_owner_sessions.sql applied and verified; admin_sessions and admin_login_limits now exist. Secret ADMIN_TOKEN stays in Cloudflare only, not JavaScript storage. Owner session via hashed opaque HttpOnly Secure Strict cookie, persisted through refresh, server revoked on logout and invalidated on credential change. Browser POSTs have CSRF header/origin defense; existing GitHub Bearer authentication remains unchanged.
+- Replaced obsolete single-page expectations in tests/core.test.js; 36/36 in-process regression/mock tests pass, including server-side login/me repeated calls/logout and CSRF/bearer fallback. Worker and extracted inline browser JS compile.
+- Production PUT of isolated Cloudflare ceritexa-content-agent succeeded HTTP 200. Management GET confirms 100% traffic on latest Worker with approved v3 UI, login routes, editor config and public shell v1.7.0. Preserved six secrets, two existing Worker Cron triggers, dedicated D1/KV bindings, and ALLOW_PUBLICATION=false. No other Worker touched.
+- Browser testing with actual owner's Admin Token and installed PWA is pending owner interaction; do not report real-user login as independently completed, and do not reveal private tokens.

@@ -1,4 +1,12 @@
 # CHANGELOG
+## 1.6.0 — 2026-10-26
+- Removed fixed four-scene requirement. src/core.js now chooses variable narrative shots from plot/action cues, punctuation, channel-specific pacing and word density while preserving the complete original voiceover.
+- Evolved the SAME D1 video_storyboard table with migration 0004_dynamic_storyboard.sql (scene_index 0..63), copying 4 historical records before drop/rename and confirming 4 remain afterward. No separate persistent storyboard table or original KV object deletion.
+- Updated src/index.js storyboard generation to resume in at most three-image batches with a 12-new-images/day free-tier budget, return plannedCount/sceneCount/remaining/stale/ready, and prevent a partial storyboard from being treated as finished. Dashboard now shows the variable plan and progress; gallery works with any planned count.
+- Updated canonical tools/render_video.py to require exactly all planned unique scene assets, iterate batches until ready (or show quota error), assign scene durations by narration word count and actual neural audio length, and generate variable-count FFmpeg zoompan/fade/concat videos.
+- Updated existing tests/core.test.js and GitHub render workflow step name. 32 regression/mock tests passed; synthetic local FFmpeg rendered six and ten distinct shots into valid vertical H264/AAC MP4.
+- Deployed only to isolated Ceritexa Cloudflare Worker, latest version 100% traffic; unchanged six secrets, existing Cron, publication flag false and social approval gate. Real owner cinematic video rendering remains unverified; this does not enable paid image-to-video or character animation.
+
 ## 1.5.0 — 2026-10-26
 - Replaced previous one-photo, robotic espeak-ng MP4 composition with four original scene assets, FFmpeg zoompan/fade transitions, natural-sounding Indonesian neural narration from Edge online TTS, and voice-timed subtitles. Provider unofficial; fail-closed and no silent robotic fallback.
 - Added single additive migrations/0003_video_storyboard.sql table in isolated Ceritexa D1; existing cover plus three generated images, resumed idempotently and capped at twelve new images per day. Protected storyboard API/assets implemented in existing Worker, with 4-beat/story/channel prompt rules centralized in src/core.js.

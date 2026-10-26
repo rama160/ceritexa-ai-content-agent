@@ -1,4 +1,4 @@
-# PHASE — Ceritexa AI Content Agent v1.4.1
+# PHASE — Ceritexa AI Content Agent v1.4.2
 Updated: 2026-10-25 (WITA). Source of truth: test evidence, not feature claims.
 
 | Phase | Status | Verifikasi |
@@ -103,3 +103,10 @@ Owner reports first three setup tasks completed. Remaining Facebook and two YouT
 - D1 directly checked 2026-10-26: two VIDEO drafts (Panex “Lentera di Kota Kelam”, Heros “Papan Klasemen Takdir”) have state BLOCKED, risk_note VIDEO_RENDER_REQUIRED, media_type image/jpeg. **Neither is an MP4 yet**. Video generation E2E remains pending; do not claim playback possible for these images.
 - JS regression tests **21/21 PASSED** including viewer UI/CSP and proper blocked-video labels (isolated JS harness). Full interactive Chrome PWA validation still requires owner to reopen and use the new button.
 - Deployment through dedicated Ceritexa Worker confirmed by Cloudflare management API HTTP 200, latest version 100% traffic, preserved ADMIN_TOKEN, Facebook and both YouTube credentials, preserved two Crons and ALLOW_PUBLICATION=false. Other Workers untouched.
+
+## v1.4.2 — Render Success did not mean media uploaded (26 Oct 2026)
+- User reported completed GitHub workflow but still JPEG previews. Direct Cloudflare D1 showed Panex Lentera di Kota Kelam and Heros Papan Klasemen Takdir both BLOCKED / VIDEO_RENDER_REQUIRED, media_type=image/jpeg, with no MEDIA_UPLOADED audit event. paused=false.
+- Found canonical renderer swallowing every exception and returning success without a real MP4. Corrected renderer to fail on secret/auth/render/upload/D1 mismatch and provide clear GitHub step summary and errors.
+- Worker now logs render STARTED/FAILED/COMPLETED in existing audit table and refuses a completed claim unless media_type video/mp4, state PENDING_REVIEW. PWA still displays cover JPEG but exposes MP4 Play overlay only on confirmed video.
+- Isolated Ceritexa Worker deployed and latest API code checked; all secret bindings, ID values and Cron schedules preserved and ALLOW_PUBLICATION=false. 23 tests passed in in-tool JS harness.
+- New GitHub renderer workflow triggers automatically on changes to renderer/workflow, besides 6h and manual jobs. Real GitHub rendering result after this patch has not been observed; MP4 not yet independently verified. Never claim YouTube video ready without evidence.

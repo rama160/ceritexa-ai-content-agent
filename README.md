@@ -1,4 +1,4 @@
-# Ceritexa AI Content Agent — v1.4.1
+# Ceritexa AI Content Agent — v1.4.2
 
 An isolated Cloudflare Worker and GitHub Actions project for:
 - **Ceritexa Studio** (Facebook Page, text/photo/comic)
@@ -175,3 +175,12 @@ No APK or Google Play subscription is necessary. The existing dashboard now supp
 - Preview uses authenticated `GET /api/media/:id` and in-memory `blob:` URLs; URLs are revoked and video pauses when modal closes. No public media URL, token storage or automatic publication.
 - **Confirmed database state on 2026-10-26:** Panex draft “Lentera di Kota Kelam” and Heros draft “Papan Klasemen Takdir” are **BLOCKED / VIDEO_RENDER_REQUIRED** and their primary file is **image/jpeg**, not MP4. Running the Ceritexa Video Renderer workflow is required before the Play MP4 control can appear.
 - GitHub regression suite has **21 tests passing in isolated JS harness**, including new preview and CSP checks. Cloudflare management API confirmed isolated Worker patch deployment, latest traffic 100%, all 6 secret bindings and scheduled jobs retained, `ALLOW_PUBLICATION=false`. Real owner-device modal click should be verified after opening/reloading the installed PWA.
+
+## v1.4.2 — Why green GitHub Render still showed a static image
+Root cause: previous tools/render_video.py swallowed per-video errors and always terminated successfully; therefore green GitHub Actions did NOT prove the video was built or uploaded. Cloudflare D1 independently still showed JPEG-only BLOCKED Panex and Heros drafts.
+
+Fixes: real failure exit codes, Python/secret preflight, narration/MP4 verification, upload acknowledgement and D1 media_type=video/mp4/PENDING_REVIEW verification. Render logs now have explicit success/error and workflow summary. Existing Worker records renderer stage/error in D1 audit; PWA shows a ▶ Putar MP4 cover button once a real MP4 is available.
+
+Owner check: In GitHub Actions open the latest Ceritexa Video Renderer run. Open step Render and VERIFY MP4 upload to Ceritexa D1 and read its summary. A correct render MUST log MP4 uploaded and state PENDING_REVIEW confirmed. If the step is red, copy the failure text only, never secret. If the token is missing, set CERITEXA_ADMIN_TOKEN under this repository Settings > Secrets and variables > Actions to the same value as the isolated Ceritexa Worker ADMIN_TOKEN.
+
+The renderer also runs on future renderer/workflow changes and retains the six-hour schedule. It does NOT post to Facebook or YouTube and ALLOW_PUBLICATION is false. Current MP4 success after this fix is still pending real GitHub run evidence; do not treat an illustrated preview as a complete video.

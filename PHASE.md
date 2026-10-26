@@ -1,4 +1,4 @@
-# PHASE — Ceritexa AI Content Agent v1.4.2
+# PHASE — Ceritexa AI Content Agent v1.5.0
 Updated: 2026-10-25 (WITA). Source of truth: test evidence, not feature claims.
 
 | Phase | Status | Verifikasi |
@@ -110,3 +110,14 @@ Owner reports first three setup tasks completed. Remaining Facebook and two YouT
 - Worker now logs render STARTED/FAILED/COMPLETED in existing audit table and refuses a completed claim unless media_type video/mp4, state PENDING_REVIEW. PWA still displays cover JPEG but exposes MP4 Play overlay only on confirmed video.
 - Isolated Ceritexa Worker deployed and latest API code checked; all secret bindings, ID values and Cron schedules preserved and ALLOW_PUBLICATION=false. 23 tests passed in in-tool JS harness.
 - New GitHub renderer workflow triggers automatically on changes to renderer/workflow, besides 6h and manual jobs. Real GitHub rendering result after this patch has not been observed; MP4 not yet independently verified. Never claim YouTube video ready without evidence.
+
+## v1.5.0 — Four scene cinematic editing + neural narrator quality upgrade (26 October 2026)
+- User rejected prior MP4 because it only showed a still photo, robotic voice and text. Confirmed from src/tools design: old renderer used espeak-ng and one JPEG. The feature was an MP4 wrapper but did not deliver expected multi-scene cinematic treatment.
+- Implemented owner-only opt-in re-render action on existing PENDING_REVIEW MP4, preserving old MP4 file in KV, restoring review cover/JPEG to BLOCKED only on confirmation. Existing approval, scheduling and public posting rules unchanged.
+- Additive video_storyboard D1 table applied and verified to Ceritexa D1. Four beats per video, first existing illustration and three Workers AI images; daily hard cap 12 generated scenes. GET assets remains Bearer Admin protected.
+- Existing GitHub Python renderer now requires four distinct JPEGs, requests Indonesian Edge neural TTS voices and their SRT timings, uses FFmpeg camera zoom/pan + fade/concat to produce 540x960 H264/AAC, then uploads/validates D1. No silent fallback to robotic speech and no paid video models.
+- Actual FFmpeg 7.1.5 local synthetic test: four distinct source JPEGs, audio, captions -> valid 9.000s H264/AAC 540x960 MP4, ~517KB. Initial xfade filter failed; replaced with compatible fade/concat after testing.
+- JS Worker/dashboard syntax PASS; 28 isolated source/mock tests PASS including scene idempotence and old MP4 preservation. Full live GitHub neural voice rendering, character consistency, quality of user video and browser review are NOT YET independently verified.
+- Dedicated Ceritexa Worker PUT returned HTTP 200. Cloudflare management GET confirmed latest version serving 100% traffic, 6 secret bindings preserved, 2 Worker Crons unchanged and ALLOW_PUBLICATION=false. No unrelated Workers touched.
+- Last D1 check: old Panex and Heros drafts currently PENDING_REVIEW with video/mp4, and zero storyboard rows. **No upgraded cinematic content has been made yet.** User must choose Render ulang jadi video sinematik for either old unapproved video, then launch/check GitHub renderer.
+- True moving-character image-to-video via third-party model is NOT part of free mode and remains disabled without owner budget approval; motion-comic camera effects should never be misdescribed as full text-to-video.

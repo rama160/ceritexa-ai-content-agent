@@ -1,19 +1,19 @@
-# PHASE — Ceritexa AI Content Agent v1.2.1
+# PHASE — Ceritexa AI Content Agent v1.2.2
 Updated: 2026-10-25 (WITA). Source of truth: test evidence, not feature claims.
 
 | Phase | Status | Verifikasi |
 |---|---|---|
 | 0 Legacy Flutter repo replaced in Ceritexa only | DONE | Commit history preserved, HEAD no old Finchat source |
-| 1 PRD, architecture, AI_START_HERE and changelog canonical | DONE | Docs version 1.2.0 |
+| 1 PRD, architecture, AI_START_HERE and changelog canonical | DONE | Docs version 1.2.2 |
 | 2 Worker API, D1 schema, mobile dashboard | IMPLEMENTED / CLOUDFLARE COMPILE PASS | Dedicated Ceritexa script and D1, not browser E2E verified |
 | 3 D1 database and isolated KV media | VERIFIED VIA CLOUDFLARE API | D1 `ceritexa-content-db`, KV `ceritexa-content-media-kv` |
 | 4 Worker deployment and two Cron schedules | DEPLOYED / 100% SCRIPT VERSION | Cloudflare deployments API confirmed latest version live; health HTTP externally unverified |
-| 5 Workers AI text generation | MODEL API VERIFIED; WORKER HTTP E2E PENDING | Gemma 4 26B with enable_thinking=false produced valid 4-field Indonesian story JSON; fallback Llama |
+| 5 Workers AI text generation | WORKER DRAFT CREATION VERIFIED | D1 shows 2 recent DRAFT_CREATED audit events: Facebook TEXT and Heros VIDEO; no public posting |
 | 6 Photo/comic generation and owner file uploads | IMAGE MODEL API VERIFIED; WORKER E2E PENDING | Flux-1 Schnell successfully returned base64 JPEG; KV fallback; dashboard media upload and preview added |
 | 7 Video automation: image→offline voice→SRT→FFmpeg MP4 | SOURCE AND ACTION ADDED / CI E2E PENDING | `tools/render_video.py` enforces <=59s complete Shorts; GitHub renderer needs owner-set CERITEXA_ADMIN_TOKEN |
 | 8 Trend research, publishing safety, scheduling | DAILY DRAFT AUTOPILOT ENABLED / LIVE E2E PENDING | Cron daily at 00:00 UTC; D1 paused=false; ALLOW_DAILY_DRAFTS=true; all public publishing OFF |
 | 9 Analytics-to-strategy adaptation | IMPLEMENTED / NOT DATA-VERIFIED | Only changes recommended topics with >=3 published posts and real metrics |
-| 10 Meta Page and YouTube OAuth integration | OWNER AUTHORIZATIONS PENDING | Protected identity verification endpoint added; Facebook posts blocked unless Page name begins Ceritexa; YouTube ids must differ; no Facebook/Google provider secrets present |
+| 10 Meta Page and YouTube OAuth integration | THREE IDENTITIES VERIFIED BY OWNER | Dashboard screenshot: Facebook Ceritexa, Panex, Heros all verified=true; Cloudflare secret names present; provider write tests still pending |
 | 11 Production publication, Facebook Reels and income | NOT COMPLETE | Requires official provider permissions, E2E, owner activation; FB Reels blocked |
 | 12 Browser auth/health E2E and CI status | TEST SUITE WRITTEN / NOT RUN VERIFIED | tests/smoke.py validates health, 401 anonymous, admin, provider off; manual GitHub CI requires owner GitHub Secret; external environment cannot reach workers.dev |
 | 13 R2 media storage | NOT AVAILABLE | Cloudflare account R2 API returns disabled/403; KV used only for small pilot files |
@@ -37,7 +37,7 @@ Updated: 2026-10-25 (WITA). Source of truth: test evidence, not feature claims.
 8. Pull actual platform metrics, evaluate strategy, test Pause All + idempotency.
 9. Only after user authorizes real public posting, enable ALLOW_PUBLICATION; no misleading claim of revenue.
 
-## Implementation check — v1.2.1
+## Implementation check — v1.2.2
 - Latest `ceritexa-content-agent` Worker script uploaded successfully through Cloudflare API (HTTP 200), latest deployed version has **100% traffic**, Cloudflare workers.dev subdomain enabled. No other Worker resources were written.
 - D1 query verified **2 drafts**, both `PENDING_REVIEW`, **0 published**; one labeled `UJI INTERNAL`, one pilot draft. Draft creation via direct AI + D1 API test is not equivalent to end-to-end Worker dashboard verification.
 - `/api/readiness` returns non-sensitive setup checks. `/api/connections/verify` performs identity checks without posting. Both are protected by ADMIN_TOKEN; browser HTTP integration remains owner/CI verification pending.
@@ -55,3 +55,9 @@ Owner reports first three setup tasks completed. Remaining Facebook and two YouT
 - Google OAuth Branding user screenshot shows oversized-logo validation and missing App domain fields. Recommended logo is a square 120x120 PNG under 1 MB. Optimized image supplied as a separate chat artifact, not committed to git.
 - Next external gate: owner must enable Pages, confirm all three URLs load without login, enter authorized domain `rama160.github.io`, and verify ownership via Google Search Console if required. Google approval cannot be guaranteed on a shared-host domain.
 - No Ceritexa Worker code, tokens, or other project infrastructure was changed by this branding-documentation phase.
+
+## 2026-10-26 — Direct pilot checks and editorial correction
+- Cloudflare D1 query returned three Facebook TEXT PENDING_REVIEW drafts and one Heros VIDEO BLOCKED / VIDEO_RENDER_REQUIRED. Recent Worker audit DRAFT_CREATED events confirm actual generation and D1 persistence. No PUBLISHED entry was reported; this is NOT proof of successful public provider posting.
+- One Heros VIDEO draft and one Facebook TEXT draft used a football Bundesliga standings headline from general trending RSS, irrelevant to their editorial direction. Updated canonical selector src/core.js selectDraftTopic(), EDITORIAL_TOPICS and channel keyword scores. Preserves manual topic entry first, then relevant strategy/trend, else category-appropriate evergreen prompts. Added regression tests for irrelevant trend rejection and manually entered topic precedence.
+- Seven pure in-isolate editorial checks and JavaScript syntax verification passed against current GitHub code. Full Node GitHub CI and browser-level upload checks still require explicit run/observation.
+- Updated Worker deployed successfully to isolated ceritexa-content-agent through Cloudflare API HTTP 200; latest deployment 100% traffic. Six encrypted secret bindings preserved, all Facebook and YouTube channel ID variables preserved, two Crons unchanged, and ALLOW_PUBLICATION=false.

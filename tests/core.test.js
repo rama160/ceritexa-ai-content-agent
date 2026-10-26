@@ -82,3 +82,19 @@ test('Worker single module and authenticated preview/reject routes parse',()=>{
  assert.match(original,/data-reject/);
  assert.match(original,/id="brandLogo"/);
 });
+
+test('review UI includes cover generation, reject reason and retry pathway',()=>{
+ const src=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
+ const migration=readFileSync(new URL('../migrations/0002_review_feedback.sql',import.meta.url),'utf8');
+ assert.match(src,/data-gencover/);
+ assert.match(src,/async function regenerateCover/);
+ assert.match(src,/async function rejectDraft/);
+ assert.match(src,/async function retryRegeneration/);
+ assert.match(src,/regen_state='FAILED'/);
+ assert.match(src,/state='REJECTED'/);
+ assert.match(src,/async function saveAIArtwork/);
+ assert.match(src,/data-poster/);
+ assert.match(src,/id="brandLogo"/);
+ assert.match(migration,/CREATE TABLE IF NOT EXISTS draft_reviews/);
+ assert.match(migration,/INSERT OR IGNORE INTO draft_reviews/);
+});

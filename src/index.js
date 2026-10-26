@@ -662,10 +662,19 @@ el('trendlist').innerHTML=t.trends.map(x=>'<div class="card"><b>'+safe(x.topic)+
 document.querySelectorAll('[data-save]').forEach(b=>b.onclick=()=>work(()=>action('posts/'+b.dataset.save+'/edit',{title:document.querySelector('[data-title="'+b.dataset.save+'"]').value,caption:document.querySelector('[data-caption="'+b.dataset.save+'"]').value,story:document.querySelector('[data-story="'+b.dataset.save+'"]').value})));
 document.querySelectorAll('[data-viewscenes]').forEach(b=>b.onclick=()=>openStoryboardGallery(b.dataset.viewscenes));
 document.querySelectorAll('[data-storyboard]').forEach(b=>b.onclick=()=>work(async()=>{
- const response=await action('posts/'+b.dataset.storyboard+'/storyboard',{});
+ const id=b.dataset.storyboard;
+ let response=null,priorCount=-1;
+ for(let attempt=0;attempt<9;attempt++){
+  response=await action('posts/'+id+'/storyboard',{});
+  el('notice').textContent='Membuat storyboard '+response.sceneCount+'/'+response.plannedCount+' adegan — berdasarkan narasi.';
+  if(response.ready||response.dailyLimitReached)break;
+  if(response.sceneCount<=priorCount)throw Error('Storyboard tidak bertambah. Periksa kuota atau Worker AI dan ulangi.');
+  priorCount=response.sceneCount;
+ }
+ if(!response)throw Error('Storyboard belum berhasil dimulai.');
  if(response.ready)return {message:'Storyboard lengkap '+response.sceneCount+'/'+response.plannedCount+' adegan. Silakan pratinjau dan render.',...response};
- if(response.dailyLimitReached)return {message:'Storyboard '+response.sceneCount+'/'+response.plannedCount+' adegan. Kuota gambar gratis hari ini habis; lanjutkan besok.',...response};
- return {message:'Storyboard '+response.sceneCount+'/'+response.plannedCount+' adegan. Tekan Lanjutkan storyboard untuk membuat adegan berikutnya.',...response};
+ if(response.dailyLimitReached)return {message:'Storyboard '+response.sceneCount+'/'+response.plannedCount+' adegan. Kuota gambar gratis habis; semua adegan tersimpan. Lanjutkan besok.',...response};
+ return {message:'Storyboard '+response.sceneCount+'/'+response.plannedCount+' adegan tersimpan. Tekan Lanjutkan storyboard bila perlu.',...response};
 }));
 document.querySelectorAll('[data-upgradevideo]').forEach(b=>b.onclick=()=>{
  if(confirm('Render ulang MP4 dengan jumlah adegan mengikuti narasi dan suara neural? MP4 lama tetap tersimpan; draft kembali BLOCKED sampai render baru selesai.'))work(()=>action('posts/'+b.dataset.upgradevideo+'/upgrade-video',{}));

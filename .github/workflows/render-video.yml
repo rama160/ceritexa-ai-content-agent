@@ -1,6 +1,12 @@
 name: Ceritexa Video Renderer (drafts only)
 on:
   workflow_dispatch:
+  # A renderer fix may immediately process an already BLOCKED draft, without publishing.
+  push:
+    branches: [main]
+    paths:
+      - 'tools/render_video.py'
+      - '.github/workflows/render-video.yml'
   schedule:
     - cron: "20 */6 * * *"
 permissions:

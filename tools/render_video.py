@@ -26,7 +26,7 @@ def request(path: str, data=None, content_type=None):
     """Authenticated API request. Token is NEVER placed in URL or diagnostic logs."""
     headers = {
         "Authorization": "Bearer " + TOKEN,
-        "User-Agent": "Ceritexa-renderer/1.6.1",
+        "User-Agent": "Ceritexa-renderer/1.6.2",
         "Cache-Control": "no-store",
     }
     if content_type:

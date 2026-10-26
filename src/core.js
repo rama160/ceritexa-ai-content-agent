@@ -19,10 +19,61 @@ export function parseRss(xml){
   return {topic:clean(find('title')).slice(0,150),url:clean(find('link')).slice(0,500)};
  }).filter(x=>x.topic&&x.url.startsWith('https://'));
 }
+/** Owner-approved editorial topic seeds. Reuse this list instead of copying channel prompts elsewhere. */
+export const EDITORIAL_TOPICS=Object.freeze({
+ facebook:[
+  'Seorang ibu penjual nasi diam-diam membantu anak kurang mampu bersekolah',
+  'Persahabatan lama diuji oleh rahasia keluarga yang terungkap',
+  'Perjuangan seorang ayah membahagiakan anaknya dengan cara sederhana',
+  'Misteri surat tua yang mengubah kehidupan sebuah keluarga',
+  'Kebaikan pemilik warung kecil yang menyentuh hati para tetangga',
+  'Seorang sahabat kembali setelah bertahun-tahun membawa permintaan maaf'
+ ],
+ panex:[
+  'Anak perantau pulang dan mengetahui pengorbanan ibunya',
+  'Dua sahabat berjuang mempertahankan usaha kecil mereka',
+  'Seorang ayah pekerja keras berusaha memperbaiki hubungan dengan anaknya',
+  'Rahasia keluarga terungkap ketika sebuah surat lama ditemukan',
+  'Keputusan sulit seorang ibu demi masa depan anak',
+  'Perjuangan pemuda mencari pekerjaan dan menemukan persahabatan baru'
+ ],
+ heros:[
+  'Pahlawan orisinal berkekuatan cahaya harus memilih menyelamatkan sahabat atau kota',
+  'Seorang superhero orisinal menyembunyikan identitas ketika monster menyerang kota',
+  'Robot pelindung dengan jiwa manusia belajar makna keberanian',
+  'Seorang pahlawan remaja memperoleh kekuatan unik dan menghadapi dilema keadilan',
+  'Petualangan superhero orisinal di dunia fantasi dengan ancaman misterius',
+  'Pahlawan penjaga langit menghadapi musuh yang ternyata membutuhkan pertolongan'
+ ]
+});
+const CHANNEL_KEYWORDS=Object.freeze({
+ facebook:['ibu','ayah','anak','keluarga','kehidupan','kisah','cerita','drama','sahabat','persahabatan','sekolah','warung','pekerja','perjuangan','cinta','misteri','tetangga','kebaikan','usaha','korban','harapan'],
+ panex:['ibu','ayah','anak','keluarga','kehidupan','kisah','cerita','drama','sahabat','persahabatan','sekolah','warung','pekerja','perjuangan','cinta','teman','hubungan','usaha','pengorbanan','harapan'],
+ heros:['pahlawan','superhero','fantasi','kekuatan','robot','monster','petualangan','keadilan','penyelamat','superpower','villain','hero','penjaga','ajaib']
+});
 export function score(topic,channel){
  if(!CHANNELS[channel]||detectRisk(topic))return 0;
- const words=CHANNELS[channel].topic.split(/[ ,]+/).filter(w=>w.length>3);
- return Math.min(100,25+words.filter(w=>topic.toLowerCase().includes(w)).length*15);
+ const content=String(topic||'').toLocaleLowerCase('id-ID');
+ const matches=CHANNEL_KEYWORDS[channel].filter(word=>content.includes(word)).length;
+ return Math.min(100,matches*40);
+}
+/** Prefer explicit owner request, then actual channel-relevant learning/trends, then evergreen originals.
+ * A general viral trend is NOT automatically suitable for superhero or life-story channels.
+ */
+export function selectDraftTopic(channel,{userTopic='',strategyTopic='',trends=[],dayIndex=0}={}){
+ if(!CHANNELS[channel])throw Error('Kanal tidak dikenal');
+ const requested=String(userTopic||'').trim().slice(0,150);
+ if(requested){
+  if(detectRisk(requested))throw Error('Topik berisiko hak cipta');
+  return requested;
+ }
+ const strategy=String(strategyTopic||'').trim();
+ if(strategy&&score(strategy,channel)>=40)return strategy.slice(0,150);
+ const candidates=trends.map(item=>typeof item==='string'?item:item?.topic).filter(Boolean).map(topic=>({topic,rank:score(topic,channel)})).filter(item=>item.rank>=40).sort((a,b)=>b.rank-a.rank);
+ if(candidates.length)return candidates[0].topic.slice(0,150);
+ const topics=EDITORIAL_TOPICS[channel];
+ const index=Math.abs(Math.trunc(Number(dayIndex)||0))%topics.length;
+ return topics[index];
 }
 export function parseAI(result){
  let obj;const s=String(result||'').replace(/^```(?:json)?/,'').replace(/```$/,'').trim();

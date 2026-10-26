@@ -1,4 +1,12 @@
 # CHANGELOG
+## 1.4.1 — 2026-10-26
+- Fixed installed PWA **Lihat media asli** no-visible-response issue: previously appended viewer far beneath controls. Replaced with immediate accessible modal, image zoom/video Play UI, loading/error state, close cleanup and blob revocation.
+- Added Content-Security-Policy `media-src 'self' blob:` to permit in-memory private MP4 playback while API requests remain admin-protected; service worker still bypasses private API and does not cache media.
+- Distinguished media JPEG illustration from completed MP4: show accurate button labels and direct GitHub Actions video rendering hint for BLOCKED VIDEO drafts.
+- Verified in isolated Ceritexa D1 that current Panex and Heros VIDEO drafts have JPEG media and require rendering, not video playback. No database content altered.
+- Extended existing tests/core.test.js; 21 JS harness tests passed. Deployed only to isolated Ceritexa Worker (latest 100% traffic), preserved all six secrets and two Cron schedules; ALLOW_PUBLICATION=false and public posting remains disabled.
+- Owner-device preview click confirmation pending; GitHub Actions full MP4 render still not independently verified.
+
 ## 1.4.0 — 2026-10-26
 - Made Ceritexa's existing mobile dashboard installable as a standalone Progressive Web App (PWA) through Android Chrome/Samsung Internet without generating a second Android codebase or Play Store APK.
 - Added minimal branded web manifest (id, name, start_url, scope, standalone display, portrait, theme), scalable 192/512 SVG icon routes from original embedded Ceritexa logo and JPEG raster fallback; HTTP assets served on same isolated Worker origin.

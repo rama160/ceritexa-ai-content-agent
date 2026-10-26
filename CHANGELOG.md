@@ -132,3 +132,5 @@
 ### v1.5.0 private storyboard review
 - Added in-app Pratinjau N adegan gallery to existing mediaDialog, authenticated scene JPEG fetch and cleanup of temporary URLs; no duplicate UI module or shared media URLs.
 - 29 regression/source/mock tests passed in isolated JS harness; actual user-device review remains pending. Existing OAuth/Cloudflare secrets unchanged.
+
+- Final v1.6.0 safeguard: owner-initiated replanning archives previous scene indices/private KV keys in the existing audit before unlinking stale storyboard metadata; cover replacement also invalidates an outdated plan. No previous image file is deleted.

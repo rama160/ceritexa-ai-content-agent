@@ -1,5 +1,5 @@
 # AI START HERE — Ceritexa canonical rules
-Version 1.6.0 — 2026-10-26
+Version 1.6.1 — 2026-10-26
 
 1. Always read this file, PHASE.md, CHANGELOG.md, PRD.md and ARSITEKTUR.md before work.
 2. Edit existing owner modules rather than writing similar/duplicate files; do not add suffixes *_fixed, *_new, _v2.
@@ -72,3 +72,11 @@ Version 1.6.0 — 2026-10-26
 64. Use only existing src/core.js, src/index.js, tools/render_video.py and tests/core.test.js. Rendered output is still moving-camera original illustrations, not physically animated actors. No paid image-to-video, no changes to Facebook/YouTube secrets, ALLOW_PUBLICATION=false.
 
 65. Before automatic storyboard replanning, audit each previous scene index and private KV media_key in existing audit table as STORYBOARD_SCENE_ARCHIVED; retain the underlying file object. Regenerate when an edited script OR changed cover makes scene plan stale. Never silently overwrite previously approved/published video.
+
+66. v1.6.1 hardening: all new owner media must be stored under unique versioned keys owner/<post_id>/<uuid>.<extension> in existing src/index.js upload(). NEVER reuse owner/<post_id>.mp4 or overwrite an older reviewed MP4; preserve historical object bytes in isolated Ceritexa KV.
+67. upload() must protect state transitions using D1 compare-and-set: UPDATE ... WHERE state IN ('BLOCKED','PENDING_REVIEW'), validate meta.changes=1 before returning success. Late uploads cannot roll back APPROVED or SCHEDULED drafts. A rejected race may leave an orphan KV object; never publish it.
+68. Installed PWA public shell cache is now ceritexa-public-shell-v1.6.1; private /api and bearer material remain uncached.
+69. Owner's single Siapkan/Lanjutkan storyboard tap now loops through at most nine three-image API batches, displays live progress, stops on daily quota, and never shortens narrative. GitHub renderer similarly loops but fails honestly if unfinished.
+70. Existing tools/render_video.py --self-test-media renders full OFFLINE MP4s with 3 and 7 uniquely colored images and synthetic test audio using the SAME production FFmpeg graph. The existing workflow runs that after installing FFmpeg and before real drafts; no separate renderer/test module.
+71. 26 Oct 2026 isolated production E2E: one clearly named UJI INTERNAL Panex draft with 96 original story words produced 8 planned scenes, 8 stored pictures, neural id-ID-GadisNeural, and verified PENDING_REVIEW video/mp4 4,398,587 bytes through GitHub Actions. This is real end-to-end evidence, unlike previous synthetic-only tests. It was never approved or publicly posted.
+72. A second E2E rerender validates new UUID media key and confirms the original legacy owner/<id>.mp4 survives. Cleanup must remove ONLY assets and D1 post created for the internal test, NEVER an original user's cover or another post's media. Record verification/cleanup outcome in PHASE.md and CHANGELOG.md.

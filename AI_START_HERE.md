@@ -1,5 +1,5 @@
 # AI START HERE — Ceritexa canonical rules
-Version 1.4.2 — 2026-10-25
+Version 1.5.0 — 2026-10-25
 
 1. Always read this file, PHASE.md, CHANGELOG.md, PRD.md and ARSITEKTUR.md before work.
 2. Edit existing owner modules rather than writing similar/duplicate files; do not add suffixes *_fixed, *_new, _v2.
@@ -53,3 +53,11 @@ Version 1.4.2 — 2026-10-25
 42. Installed PWA may show a JPEG cover for a real MP4, but actual video will have ▶ Putar MP4 overlay; blocked JPEG displays explanatory message and latest renderer event. No media auto-publishing. PUBLICATION=false.
 43. Github workflow now has preflight/self-test, missing-secret failure, red failure logs, summary, existing schedule and a push trigger limited to renderer/workflow changes, so an internal retry may run without owner approving public posting.
 44. Never say renderer succeeded unless the actual D1 post has media_type video/mp4 and state PENDING_REVIEW; inspect Actions error and exact D1 state.
+
+45. v1.5.0 fixes the owner-reported VIDEO quality gap: espeak-ng + one static photo was not cinematic. Canonical engine remains tools/render_video.py with existing src/core.js, src/index.js and .github/workflows/render-video.yml, not duplicated code.
+46. src/core.js exclusively owns CINEMATIC_SCENE_COUNT=4, sceneBeats(story) and scenePrompt(post,scene). Additive migrations/0003_video_storyboard.sql is the ONLY storyboard schema, already applied to Ceritexa D1. Four unique JPEG story beats are privately stored in Ceritexa KV (existing cover + three AI-generated images), capped at 12 NEW scenes/day on Workers Free.
+47. Protected GET/POST /api/posts/:id/storyboard and GET /api/posts/:id/storyboard/:index/image remain in the same Worker. Generate only for VIDEO, Panex/Heros, BLOCKED+image/jpeg. Resume partial scene creation idempotently; never make images or credentials public.
+48. GitHub renderer REQUIRES four different storyboard JPEG images and creates four visual motion-camera shots with FFmpeg zoompan + fade/concat. It uses Edge neural Indonesia TTS timed SRT; validates H264/AAC, <=7.5MB and D1 upload. The exact filter graph was successfully tested using synthetic four-image video on FFmpeg 7.1.5.
+49. Panex uses id-ID-GadisNeural and Heros id-ID-ArdiNeural by default. The Edge endpoint used by the Python library is unofficial/online, may fail, and needs terms/licensing review before commercial distribution. Never silently fall back to robotic espeak-ng or claim a human person recorded it.
+50. This is CINEMATIC_MOTION_COMIC (camera movement over AI illustrations), NOT full moving-character generative video. Paid I2V models remain OFF unless the owner explicitly approves a budget. No paid API keys are configured.
+51. Owner-only upgrade-video POST converts ONLY unapproved PENDING_REVIEW MP4 back to BLOCKED/JPEG after confirmation; prior MP4 stays stored in KV. Never change APPROVED/SCHEDULED/PUBLISHED drafts. No social posting: ALLOW_PUBLICATION=false.

@@ -1,4 +1,10 @@
 # CHANGELOG
+## 1.4.2 — 2026-10-26
+- Fixed false-green GitHub MP4 rendering: old Python script suppressed every render error. New renderer checks authorization, source, duration, FFmpeg MP4 validity, upload acknowledgement and D1 PENDING_REVIEW/video/mp4. Missing secrets and all failed attempts return nonzero and clear GitHub annotations.
+- Protected Worker now records RENDER_STARTED/FAILED/COMPLETED in existing audit without schema changes and blocks false completed status. Dashboard shows render errors and ▶ Putar MP4 only after a valid upload; cover remains JPEG by design.
+- Workflow includes Python self-test, secret preflight, auto internal retry after renderer/workflow changes, and unchanged scheduled/manual dispatch. Posting to social providers remains disabled.
+- 23 in-tool JS regression tests passed and isolated Ceritexa Worker deployed 100%; existing six Cloudflare secrets preserved. End-to-end GitHub upload still requires real job result.
+
 ## 1.4.1 — 2026-10-26
 - Fixed installed PWA **Lihat media asli** no-visible-response issue: previously appended viewer far beneath controls. Replaced with immediate accessible modal, image zoom/video Play UI, loading/error state, close cleanup and blob revocation.
 - Added Content-Security-Policy `media-src 'self' blob:` to permit in-memory private MP4 playback while API requests remain admin-protected; service worker still bypasses private API and does not cache media.

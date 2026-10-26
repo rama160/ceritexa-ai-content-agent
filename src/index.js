@@ -1,4 +1,4 @@
-import {CHANNELS,validate,detectRisk,parseRss,score,parseAI,compareToken,gate,readiness} from './core.js';
+import {CHANNELS,validate,detectRisk,parseRss,score,parseAI,compareToken,gate,readiness,selectDraftTopic} from './core.js';
 const utc=()=>new Date().toISOString(),uuid=()=>crypto.randomUUID();
 const answer=(v,c=200)=>Response.json(v,{status:c,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 const db=(env,q,...params)=>env.DB.prepare(q).bind(...params);
@@ -37,8 +37,8 @@ export async function makeDraft(e,channel,format,topic){
  if(Number(used?.n||0)>=limit)throw Error('Batas draft bulanan tercapai');
  const savedStrategy=await row(e,'SELECT value FROM settings WHERE key=?','strategy_'+channel);
  const leader=savedStrategy?.value?JSON.parse(savedStrategy.value).recommendedTopic:null;
- const selected=String(topic||'').slice(0,150).trim()||leader||((await row(e,'SELECT topic FROM trends ORDER BY created_at DESC LIMIT 1'))?.topic)||CHANNELS[channel].topic;
- if(detectRisk(selected))throw Error('Topik berisiko hak cipta');
+ const recentTrends=await list(e,'SELECT topic FROM trends ORDER BY created_at DESC LIMIT 25');
+ const selected=selectDraftTopic(channel,{userTopic:topic,strategyTopic:leader,trends:recentTrends,dayIndex:Math.floor(Date.now()/86400000)});
  let cr=null,lastError='';
  for(const model of [mtext,'@cf/meta/llama-3.1-8b-instruct-fp8']){
   try{

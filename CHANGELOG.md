@@ -1,4 +1,12 @@
 # CHANGELOG
+## 1.6.1 — 2026-10-26
+- **Real GitHub Actions E2E PASSED**: a temporary original 96-word Panex draft was split into 8 narrative-dependent scenes, generated 7 private AI images plus its cover, narrated by id-ID-GadisNeural and saved as a verified 4,398,587-byte MP4 with D1 PENDING_REVIEW and RENDER_COMPLETED.
+- Fixed media overwrite bug in existing Worker upload handler: versioned unique owner/<post_id>/<uuid>.<extension> keys preserve prior MP4 and image objects; guarded D1 update prevents an upload race from reverting approved/scheduled content. Added regression mock test (33/33 PASS).
+- **Second real E2E PASSED** after latest isolated Worker deploy: same internal narrative generated a new 4,400,136-byte versioned MP4, while original legacy test MP4 was independently verified present in KV (both HTTP 200). Correct neural narrator, eight scenes and no publication.
+- Added offline FFmpeg `--self-test-media` to the existing Python renderer, called by the existing GitHub workflow prior to live rendering, with 3- and 7-scene image/audio tests. PWA single-tap storyboard now completes multiple three-scene batches safely and shows quota/progress; shell cache version bumped to 1.6.1.
+- **Staging cleanup completed**: deleted only the internal test's 7 storyboard JPEGs, 2 MP4s, 8 D1 scenes, 1 review and 1 test post. Audit events retained. Original eight posts, both original video MP4s and Panex's four prior scenes preserved and verified. No media or other Cloudflare project touched.
+- Latest dedicated Ceritexa Worker active at 100%, all six existing secrets and both Crons unchanged, ALLOW_PUBLICATION=false. Full moving-character I2V remains out of scope and not claimed; original owner approval before public posting still mandatory.
+
 ## 1.6.0 — 2026-10-26
 - Removed fixed four-scene requirement. src/core.js now chooses variable narrative shots from plot/action cues, punctuation, channel-specific pacing and word density while preserving the complete original voiceover.
 - Evolved the SAME D1 video_storyboard table with migration 0004_dynamic_storyboard.sql (scene_index 0..63), copying 4 historical records before drop/rename and confirming 4 remain afterward. No separate persistent storyboard table or original KV object deletion.

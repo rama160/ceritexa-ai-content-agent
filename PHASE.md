@@ -1,4 +1,4 @@
-# PHASE — Ceritexa AI Content Agent v1.4.0
+# PHASE — Ceritexa AI Content Agent v1.4.1
 Updated: 2026-10-25 (WITA). Source of truth: test evidence, not feature claims.
 
 | Phase | Status | Verifikasi |
@@ -96,3 +96,10 @@ Owner reports first three setup tasks completed. Remaining Facebook and two YouT
 - All six previously configured secret bindings preserved; all Page/YouTube IDs unchanged; Cron triggers remain `0 0 * * *` and `*/15 * * * *`; ALLOW_PUBLICATION=false.
 - 19 JS tests passed in isolated in-tool harness (including mock HTTP app route, complete draft reject flow, brand icon/manifest and SW cache guards). GitHub Actions hosted results not independently observed, Android home-screen installation still owner confirmation pending.
 - D1 posts are unchanged by the PWA deploy; no Cloudflare account resources belonging to Spenva/Finchat or Nusa Penida Experiences were modified.
+
+## v1.4.1 — User-reported media viewer no-op, 2026-10-26
+- Owner confirmed PWA installation works and reported **Lihat media asli** appears to do nothing. Source inspection found viewer appended content after the card's controls, far below the button, and CSP lacked `media-src blob:` (blocking MP4 playback).
+- Fixed in existing src/index.js with immediately visible native dialog and loading/error/success status, zoomed JPEG preview or MP4 controls+playsInline, close cleanup, blob URL revocation and correct media-src CSP; changed button text to reflect stored MIME and added render-video.yml guidance for artwork-only VIDEO drafts.
+- D1 directly checked 2026-10-26: two VIDEO drafts (Panex “Lentera di Kota Kelam”, Heros “Papan Klasemen Takdir”) have state BLOCKED, risk_note VIDEO_RENDER_REQUIRED, media_type image/jpeg. **Neither is an MP4 yet**. Video generation E2E remains pending; do not claim playback possible for these images.
+- JS regression tests **21/21 PASSED** including viewer UI/CSP and proper blocked-video labels (isolated JS harness). Full interactive Chrome PWA validation still requires owner to reopen and use the new button.
+- Deployment through dedicated Ceritexa Worker confirmed by Cloudflare management API HTTP 200, latest version 100% traffic, preserved ADMIN_TOKEN, Facebook and both YouTube credentials, preserved two Crons and ALLOW_PUBLICATION=false. Other Workers untouched.

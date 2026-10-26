@@ -1,4 +1,4 @@
-# ARSITEKTUR 1.5.0 — Ceritexa Studio
+# ARSITEKTUR 1.6.0 — Ceritexa Studio
 Single isolated Cloudflare Worker `ceritexa-content-agent`, D1 `ceritexa-content-db`. Optional private R2 `ceritexa-content-media` after owner enables storage.
 
 ```mermaid
@@ -81,3 +81,10 @@ Cloudflare Cron 00:00 UTC (08:00 WITA) executes metrics refresh, strategy assess
 - FFmpeg zoompan + fade + concat produces four 540x960 shots, H264/AAC with subtitles. A synthetic 4-image render on FFmpeg 7.1.5 produced a valid MP4. Animated camera movement is NOT character animation; no paid I2V calls are made.
 - Existing media upload endpoint updates only eligible BLOCKED video to PENDING_REVIEW with verified MP4, retaining story poster key in draft_reviews. Owner-only POST /api/posts/:id/upgrade-video resets an UNAPPROVED MP4 to BLOCKED/JPEG for new rendering, preserving old MP4 data in KV.
 - ALLOW_PUBLICATION stays false and owner must review all replacement MP4 files. No edits to unrelated Cloudflare resources, no new provider credentials.
+
+## v1.6.0 — Dynamic scene pipeline in the existing modules
+- src/core.js sceneBeats(story,channel) derives boundaries via dramatic event and narrative transition cues, punctuation and genre pacing while retaining source words. scenePrompt embeds variable total/index and per-beat shot guidance. MAX_STORYBOARD_SCENES=24 is a technical fail-safe, not a target count.
+- Migration 0004_dynamic_storyboard.sql evolves existing video_storyboard CHECK(scene_index) 0..3 to 0..63 with a staging copy-and-swap; historical records and media references preserved. No second storyboard table survives.
+- Existing src/index.js storyboard POST creates at most 3 new AI images per call, allows continuation and reports progress (plannedCount, sceneCount, remaining, ready, stale, dailyLimitReached). Daily extra image budget 12 may postpone progress without shortening narrative; changed scripts cause owner-requested replan retaining KV media objects.
+- Existing GitHub tools/render_video.py repeatedly builds missing storyboard images in batches, requires plannedCount unique private JPEGs, assigns each scene a spoken-word-weighted share of actual neural voice duration and composes a variable FFmpeg zoompan/fade/concat graph. Upload and D1 verification remain required for success.
+- Existing PWA card and gallery show X/Y planned shots, unfinished status and no false claim of completion. Approved/published content and Cloudflare accounts for other projects are unaffected. ALLOW_PUBLICATION=false.

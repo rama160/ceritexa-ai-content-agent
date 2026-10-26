@@ -61,3 +61,5 @@ Version 1.5.0 — 2026-10-25
 49. Panex uses id-ID-GadisNeural and Heros id-ID-ArdiNeural by default. The Edge endpoint used by the Python library is unofficial/online, may fail, and needs terms/licensing review before commercial distribution. Never silently fall back to robotic espeak-ng or claim a human person recorded it.
 50. This is CINEMATIC_MOTION_COMIC (camera movement over AI illustrations), NOT full moving-character generative video. Paid I2V models remain OFF unless the owner explicitly approves a budget. No paid API keys are configured.
 51. Owner-only upgrade-video POST converts ONLY unapproved PENDING_REVIEW MP4 back to BLOCKED/JPEG after confirmation; prior MP4 stays stored in KV. Never change APPROVED/SCHEDULED/PUBLISHED drafts. No social posting: ALLOW_PUBLICATION=false.
+
+52. v1.5.0 includes a PRIVATE storyboard gallery on existing installed dashboard. Handler openStoryboardGallery() reuses one mediaDialog and GET /api/posts/:id/storyboard + protected JPEG paths. No new frontend module. All blob: URLs must be revoked on dismiss and API responses never cached.

@@ -617,7 +617,7 @@ function renderDraft(x){
  const storyboardComplete=plannedCount>0&&sceneCount===plannedCount;
  const viewLabel=isMp4?'Putar video MP4':x.format==='VIDEO'?'Lihat ilustrasi (MP4 belum siap)':'Perbesar gambar asli';
  const actions=(x.format==='VIDEO'&&sceneCount>0?'<button type="button" data-viewscenes="'+id+'">Pratinjau '+sceneCount+' adegan</button>':'')+
-  (x.format==='VIDEO'&&x.state==='BLOCKED'?'<button data-storyboard="'+id+'">'+(sceneCount?'Lanjutkan storyboard':'Siapkan storyboard')+' ('+sceneCount+'/'+(plannedCount||'?')+' adegan)'</button>':'')+
+  (x.format==='VIDEO'&&x.state==='BLOCKED'?'<button data-storyboard="'+id+'">'+(sceneCount?'Lanjutkan storyboard':'Siapkan storyboard')+' ('+sceneCount+'/'+(plannedCount||'?')+' adegan)</button>':'')+
   (x.format==='VIDEO'&&isMp4&&x.state==='PENDING_REVIEW'?'<button data-upgradevideo="'+id+'">Render ulang jadi video sinematik</button>':'')+
   (reviewable?'<button data-gencover="'+id+'">'+(x.preview_media_key?'Ganti ilustrasi AI':'Buat gambar review AI')+'</button>':'')+(x.media_key?'<button type="button" data-view="'+id+'" data-media-label="'+safe(viewLabel)+'" data-media-type="'+safe(x.media_type||'')+'">'+safe(viewLabel)+'</button>':'')+
   (reviewable?'<input type="file" data-file="'+id+'" accept="'+(x.format==='VIDEO'?'video/mp4':'image/jpeg,image/png')+'"><button data-upload="'+id+'">Ganti / tambah media</button>':'')+

@@ -1,10 +1,10 @@
-# PHASE — Ceritexa AI Content Agent v1.2.2
+# PHASE — Ceritexa AI Content Agent v1.3.0
 Updated: 2026-10-25 (WITA). Source of truth: test evidence, not feature claims.
 
 | Phase | Status | Verifikasi |
 |---|---|---|
 | 0 Legacy Flutter repo replaced in Ceritexa only | DONE | Commit history preserved, HEAD no old Finchat source |
-| 1 PRD, architecture, AI_START_HERE and changelog canonical | DONE | Docs version 1.2.2 |
+| 1 PRD, architecture, AI_START_HERE and changelog canonical | DONE | Docs version 1.3.0 |
 | 2 Worker API, D1 schema, mobile dashboard | IMPLEMENTED / CLOUDFLARE COMPILE PASS | Dedicated Ceritexa script and D1, not browser E2E verified |
 | 3 D1 database and isolated KV media | VERIFIED VIA CLOUDFLARE API | D1 `ceritexa-content-db`, KV `ceritexa-content-media-kv` |
 | 4 Worker deployment and two Cron schedules | DEPLOYED / 100% SCRIPT VERSION | Cloudflare deployments API confirmed latest version live; health HTTP externally unverified |
@@ -61,3 +61,25 @@ Owner reports first three setup tasks completed. Remaining Facebook and two YouT
 - One Heros VIDEO draft and one Facebook TEXT draft used a football Bundesliga standings headline from general trending RSS, irrelevant to their editorial direction. Updated canonical selector src/core.js selectDraftTopic(), EDITORIAL_TOPICS and channel keyword scores. Preserves manual topic entry first, then relevant strategy/trend, else category-appropriate evergreen prompts. Added regression tests for irrelevant trend rejection and manually entered topic precedence.
 - Seven pure in-isolate editorial checks and JavaScript syntax verification passed against current GitHub code. Full Node GitHub CI and browser-level upload checks still require explicit run/observation.
 - Updated Worker deployed successfully to isolated ceritexa-content-agent through Cloudflare API HTTP 200; latest deployment 100% traffic. Six encrypted secret bindings preserved, all Facebook and YouTube channel ID variables preserved, two Crons unchanged, and ALLOW_PUBLICATION=false.
+
+## v1.3.0 — Owner-requested visual review and rejection, 26 Oct 2026
+
+| Feature | Evidence-based state |
+|---|---|
+| Logo Ceritexa on dashboard | DEPLOYED — exact user-supplied brand graphic embedded once into dashboard header |
+| Visual review on every draft | DEPLOYED — private thumbnails for new TEXT/PHOTO/COMIC/VIDEO drafts with Ceritexa logo fallback; owner preview button for older records |
+| Reject draft with reason/note | DEPLOYED — reviewable posts transition to REJECTED; feedback kept in draft_reviews, originals not deleted |
+| AI child draft regeneration | CODE + SIMULATED FLOW VERIFIED — same topic/channel with previous critique, title and lexical distinction checks; maximum 3 links in chain |
+| Repeat-failure handling | CODE TESTED — failed regeneration recorded and explicit retry button shown; no blind duplicate retries |
+| D1 migration | VERIFIED ON LIVE CERITEXA D1 — draft_reviews created/idempotent and backfilled metadata for 6 pre-existing posts |
+| Unit tests | 15 PURE TESTS + IN-MEMORY WORKER REJECT TEST VERIFIED by tool; GitHub Actions runtime still to be observed |
+| Cloudflare deploy | VERIFIED — GET live script confirms new logo/reject/preview/regenerate functions and 100% traffic on latest isolated Ceritexa version |
+| Facebook / YouTube live provider write | NOT YET VERIFIED — do not enable public posting |
+| Browser authenticated end-to-end | OWNER CONFIRMATION NEEDED — management environment blocks HTTP access to workers.dev hostname |
+
+### Pending owner acceptance
+- Refresh Ceritexa dashboard in Chrome; open first pending draft and confirm new cover, logo header, and Tolak draft form are visible.
+- Reject an internal/throwaway draft with one reason, verify old REJECTED and new PENDING_REVIEW, then check image and story difference; do not approve until happy.
+- For historic drafts without illustration use Buat gambar review AI, then view private thumbnail.
+- Observe GitHub Actions tests and video renderer separately; not represented as successfully run by this release.
+- ALLOW_PUBLICATION remains false throughout.

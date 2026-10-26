@@ -125,6 +125,45 @@ async function edit(e,id,data){
  await audit(e,'DRAFT_EDITED',id,'owner edited existing draft');
  return {id,state:p.state,updated:true};
 }
+async function createReplacement(e,source,reason,note,depth){
+ try{
+  const child=await makeDraft(e,source.channel,source.format,source.topic,{parent:source,reason,note,depth:depth+1});
+  await run(e,"UPDATE draft_reviews SET regen_state='DONE',last_error=NULL,updated_at=? WHERE post_id=?",utc(),source.id);
+  await audit(e,'REJECTION_REPLACED',source.id,'replacement='+child.id+'; depth='+child.revisionDepth);
+  return {rejected:true,replacement:child,regenerated:true,limitReached:false};
+ }catch(error){
+  const message=String(error?.message||error).slice(0,250);
+  await run(e,"UPDATE draft_reviews SET regen_state='FAILED',last_error=?,updated_at=? WHERE post_id=?",message,utc(),source.id);
+  await audit(e,'REGENERATION_FAILED',source.id,message);
+  return {rejected:true,regenerated:false,replacement:null,regenerationError:message,canRetry:true};
+ }
+}
+async function rejectDraft(e,id,reason,note){
+ const source=await row(e,'SELECT * FROM posts WHERE id=?',id);
+ if(!source||!['PENDING_REVIEW','BLOCKED'].includes(source.state))throw Error('Hanya draft menunggu review yang bisa ditolak');
+ const current=await row(e,'SELECT revision_depth,regen_state FROM draft_reviews WHERE post_id=?',id);
+ const check=validateRejection(reason,note,current?.revision_depth||0);
+ const claimed=await run(e,"UPDATE posts SET state='REJECTED',updated_at=? WHERE id=? AND state IN ('PENDING_REVIEW','BLOCKED')",utc(),id);
+ if(claimed.meta?.changes!==1)throw Error('Draft sudah diproses. Segarkan halaman.');
+ await run(e,"INSERT OR IGNORE INTO draft_reviews(post_id,revision_depth,updated_at) VALUES(?,?,?)",id,check.depth,utc());
+ const state=check.maxReached?'LIMIT_REACHED':'GENERATING';
+ await run(e,"UPDATE draft_reviews SET rejection_reason=?,rejection_note=?,regen_state=?,last_error=NULL,updated_at=? WHERE post_id=?",check.reason,check.note,state,utc(),id);
+ await audit(e,'DRAFT_REJECTED',id,check.reason+'; '+check.note.slice(0,100));
+ if(check.maxReached)return {id,rejected:true,regenerated:false,limitReached:true,message:'Batas 3 kali regenerasi tercapai. Pilih topik baru atau edit manual.'};
+ return {id,...await createReplacement(e,source,check.reason,check.note,check.depth)};
+}
+async function retryRegeneration(e,id){
+ const source=await row(e,'SELECT * FROM posts WHERE id=?',id);
+ const meta=await row(e,'SELECT * FROM draft_reviews WHERE post_id=?',id);
+ if(!source||source.state!=='REJECTED'||!meta)throw Error('Draft belum ditolak');
+ if(meta.regen_state!=='FAILED'||Number(meta.revision_depth)>=MAX_REVISION_DEPTH)throw Error('Regenerasi sudah diproses atau batas revisi tercapai');
+ const exists=await row(e,'SELECT post_id FROM draft_reviews WHERE parent_id=? LIMIT 1',id);
+ if(exists)throw Error('Draft pengganti sudah ada');
+ const claim=await run(e,"UPDATE draft_reviews SET regen_state='GENERATING',updated_at=? WHERE post_id=? AND regen_state='FAILED'",utc(),id);
+ if(claim.meta?.changes!==1)throw Error('Regenerasi sedang berjalan');
+ await audit(e,'REGENERATION_RETRY',id,'retry after prior failure');
+ return {id,...await createReplacement(e,source,meta.rejection_reason,meta.rejection_note,Number(meta.revision_depth))};
+}
 async function schedule(e,id,s){
  const p=await row(e,'SELECT * FROM posts WHERE id=?',id);
  if(!p||gate(p))throw Error('Konten belum disetujui atau pemeriksaan gagal');
@@ -149,13 +188,17 @@ async function upload(e,id,req){
  const key='owner/'+id+(mp4?'.mp4':png?'.png':'.jpg');
  await e.MEDIA.put(key,arr,{httpMetadata:{contentType:mime}});
  await run(e,"UPDATE posts SET media_key=?,media_type=?,state='PENDING_REVIEW',risk_note='',updated_at=? WHERE id=?",key,mime,utc(),id);
+ if(!mp4)await run(e,"INSERT INTO draft_reviews(post_id,preview_media_key,updated_at) VALUES(?,?,?) ON CONFLICT(post_id) DO UPDATE SET preview_media_key=excluded.preview_media_key,updated_at=excluded.updated_at",id,key,utc());
  await audit(e,'MEDIA_UPLOADED',id,mime);return {id,media_key:key};
 }
-async function media(e,id){
- const p=await row(e,'SELECT media_key,media_type FROM posts WHERE id=?',id);
- if(!p?.media_key||!e.MEDIA)return new Response('Not found',{status:404});
- const o=await e.MEDIA.get(p.media_key);
- return o?new Response(o.body,{headers:{'Content-Type':p.media_type,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}}):new Response('Not found',{status:404});
+async function media(e,id,preview=false){
+ const p=await row(e,'SELECT p.media_key,p.media_type,r.preview_media_key FROM posts p LEFT JOIN draft_reviews r ON r.post_id=p.id WHERE p.id=?',id);
+ if(!p||!e.MEDIA)return new Response('Not found',{status:404});
+ const key=preview?(p.preview_media_key||(p.media_type?.startsWith('image/')?p.media_key:null)):p.media_key;
+ if(!key)return new Response('Not found',{status:404});
+ const file=await e.MEDIA.get(key);
+ const type=preview?'image/jpeg':p.media_type||'application/octet-stream';
+ return file?new Response(file.body,{headers:{'Content-Type':type,'Cache-Control':'private, max-age=0','X-Content-Type-Options':'nosniff'}}):new Response('Not found',{status:404});
 }
 async function youtubeToken(e,channel){
  const rt=channel==='panex'?e.YT_REFRESH_TOKEN_PANEX:e.YT_REFRESH_TOKEN_HEROS;
@@ -329,12 +372,13 @@ async function handle(request,e){
  if(method==='GET'&&p==='/api/readiness')return answer(readiness(e,await isPaused(e)));
  if(method==='GET'&&p==='/api/connections/verify')return answer(await verifyConnections(e));
  if(method==='GET'&&p==='/api/status')return answer({paused:await isPaused(e),publicationEnabled:e.ALLOW_PUBLICATION==='true',mediaReady:!!e.MEDIA,mediaBackend:e.MEDIAKV?'KV':e.MEDIA?'R2':null,aiReady:!!e.AI,facebookReady:!!(e.FB_PAGE_ID&&e.FB_PAGE_ACCESS_TOKEN),panexReady:!!(e.YT_REFRESH_TOKEN_PANEX&&e.YT_CHANNEL_ID_PANEX),herosReady:!!(e.YT_REFRESH_TOKEN_HEROS&&e.YT_CHANNEL_ID_HEROS),channels:CHANNELS});
- if(method==='GET'&&p==='/api/posts')return answer({posts:await list(e,'SELECT * FROM posts ORDER BY created_at DESC LIMIT 100')});
+ if(method==='GET'&&p==='/api/posts')return answer({posts:await list(e,'SELECT p.*,r.parent_id,r.revision_depth,r.rejection_reason,r.rejection_note,r.regen_state,r.preview_media_key,r.last_error FROM posts p LEFT JOIN draft_reviews r ON r.post_id=p.id ORDER BY p.created_at DESC LIMIT 100')});
  if(method==='GET'&&p==='/api/trends')return answer({trends:await list(e,'SELECT * FROM trends ORDER BY created_at DESC LIMIT 30')});
  if(method==='GET'&&p==='/api/analytics')return answer({analytics:await list(e,'SELECT * FROM metrics ORDER BY observed_at DESC LIMIT 100')});
  if(method==='GET'&&p==='/api/strategy')return answer(await strategy(e));
  if(method==='GET'&&p==='/api/audit')return answer({events:await list(e,'SELECT * FROM audit ORDER BY at DESC LIMIT 40')});
  if(method==='GET'&&p.startsWith('/api/media/'))return media(e,p.slice('/api/media/'.length));
+ if(method==='GET'&&p.startsWith('/api/preview/'))return media(e,p.slice('/api/preview/'.length),true);
  if(method==='POST'){
   const l=Number(request.headers.get('Content-Length')||0);
   if(l>8_000_000)return answer({error:'Payload too large'},413);
@@ -346,9 +390,11 @@ async function handle(request,e){
   if(p==='/api/publish')return answer(await publish(e));
   if(p==='/api/metrics')return answer(await analytics(e));
   if(p==='/api/strategy')return answer(await strategy(e));
-  const match=p.match(/^\/api\/posts\/([0-9a-f-]{36})\/(approve|schedule|media|edit)$/);
+  const match=p.match(/^\/api\/posts\/([0-9a-f-]{36})\/(approve|schedule|media|edit|reject|regenerate)$/);
   if(match){
    if(match[2]==='approve')return answer(await approve(e,match[1]));
+   if(match[2]==='reject')return answer(await rejectDraft(e,match[1],data.reason,data.note));
+   if(match[2]==='regenerate')return answer(await retryRegeneration(e,match[1]));
    if(match[2]==='edit')return answer(await edit(e,match[1],data));
    if(match[2]==='schedule')return answer(await schedule(e,match[1],data.date));
    if(match[2]==='media')return answer(await upload(e,match[1],request));

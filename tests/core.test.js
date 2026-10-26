@@ -281,7 +281,7 @@ test('renderer failures are explicit and live card distinguishes MP4 from JPEG',
  assert.match(py,/::error::/);
  assert.match(workflow,/python tools\/render_video\.py --self-test/);
  assert.match(workflow,/Validate Ceritexa GitHub secret/);
- assert.match(workflow,/Render and VERIFY MP4 upload/);
+ assert.match(workflow,/Render FOUR cinematic scenes, neural narration and verify MP4/);
 });
 
 test('four original cinematic scenes from one story and brand-consistent prompts',()=>{

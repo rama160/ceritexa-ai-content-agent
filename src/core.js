@@ -153,33 +153,87 @@ export function creativeSimilarity(a,b){
  return common/(x.size+y.size-common);
 }
 
-/** Storyboard beats are contiguous segments of the original script, never invented news. */
-export const CINEMATIC_SCENE_COUNT=4;
-export function sceneBeats(story){
+/** Variable-length visual story plan. Each scene is chosen from narrative transitions,
+ * punctuation, action and pacing; the complete source story is preserved word-for-word.
+ * A technical safety ceiling prevents pathological Shorts prompts, NOT a fixed shot count.
+ */
+export const MAX_STORYBOARD_SCENES=24;
+export const SCENE_IMAGE_DAILY_LIMIT=12;
+export const SCENES_PER_REQUEST=3;
+const NARRATIVE_TURNS=/^(?:tiba-tiba|mendadak|namun|tetapi|akhirnya|kemudian|selanjutnya|lantas|ternyata|seketika|sementara|ketika|setelah|sebelum|di|pada|akhirnya|justru|lalu|begitu|mereka|dia)\b/i;
+const DRAMATIC_ACTIONS=/\b(?:serang|berlari|melompat|menyelamatkan|menangis|jatuh|meledak|pertarungan|berkelahi|teriak|berteriak|terkejut|rahasia|menghilang|terungkap|menemukan|menyadari|memeluk|mengorbankan|berubah)\w*/gi;
+function wordCount(text){return String(text||'').trim().split(/\s+/).filter(Boolean).length;}
+export function sceneBeats(story,channel='panex'){
+ if(!['panex','heros'].includes(channel))throw Error('Storyboard hanya untuk channel YouTube');
  const words=String(story||'').trim().split(/\s+/).filter(Boolean);
- if(words.length<32)throw Error('Naskah video terlalu singkat untuk 4 adegan');
- const shots=['establishing wide shot of environment and main character','intimate medium shot with expressive body language','dramatic close-up of the turning point','hopeful cinematic closing shot with resolved visual action'];
+ if(words.length<32)throw Error('Naskah terlalu pendek untuk storyboard yang utuh');
+ // Heros needs shorter energetic cuts; Panex holds emotional shots longer.
+ const actionCount=(String(story).match(DRAMATIC_ACTIONS)||[]).length;
+ const turns=words.filter(w=>NARRATIVE_TURNS.test(w.replace(/[“"'(]/g,''))).length;
+ const base=Math.max(7,(channel==='heros'?11:14)-Math.min(3,Math.floor((actionCount+turns)/5)));
+ const min=Math.max(4,Math.floor(base*.6)),max=Math.ceil(base*1.45);
  const segments=[];
- for(let i=0;i<CINEMATIC_SCENE_COUNT;i++){
-  const start=Math.floor(i*words.length/CINEMATIC_SCENE_COUNT);
-  const end=Math.floor((i+1)*words.length/CINEMATIC_SCENE_COUNT);
-  segments.push({index:i,beat:words.slice(start,end).join(' ').slice(0,420),shot:shots[i]});
+ let begin=0;
+ while(begin<words.length){
+  const left=words.length-begin;
+  if(left<=max || left<=base+min){
+   segments.push({start:begin,end:words.length});break;
+  }
+  const lo=begin+min,hi=Math.min(words.length-min,begin+max);
+  if(lo>hi)throw Error('Narasi tidak dapat dibagi menjadi adegan layak');
+  let best=lo,bestScore=-1e10;
+  for(let cut=lo;cut<=hi;cut++){
+   const previous=words[cut-1],next=words[cut]||'';
+   const punctuation=/[.!?…]["'”’)]*$/.test(previous)?11:/[,;:]["'”’)]*$/.test(previous)?6:0;
+   const pivot=NARRATIVE_TURNS.test(next.replace(/[“"'(]/g,''))?8:0;
+   const dramatic=/^(?:serang|berlari|melompat|menyelamatkan|menangis|jatuh|meledak|rahasia|memeluk|mendadak)/i.test(next)?3:0;
+   const rhythm=-Math.abs((cut-begin)-base)*.6;
+   // Avoid starting a new scene with a closing connective, unless punctuation forces it.
+   const badOpening=/^(?:dan|yang|untuk|dengan|karena|agar|atau|sehingga)$/i.test(next)?-7:0;
+   const score=punctuation+pivot+dramatic+rhythm+badOpening;
+   if(score>bestScore){bestScore=score;best=cut;}
+  }
+  if(best<=begin)throw Error('Perencanaan adegan tidak berkembang');
+  segments.push({start:begin,end:best});begin=best;
+  if(segments.length>MAX_STORYBOARD_SCENES)
+   throw Error('Narasi terlalu panjang untuk satu Shorts; pecah menjadi episode, jangan potong adegan secara diam-diam');
  }
- return segments;
+ if(segments.length>MAX_STORYBOARD_SCENES)
+  throw Error('Adegan melebihi batas keamanan Shorts, pertimbangkan cerita berseri');
+ const total=segments.length;
+ const shots=[
+  'intimate emotional medium shot, expressive eyes and authentic body language',
+  'environmental wide shot showing changed setting and action',
+  'dramatic low-angle action frame with original character choreography',
+  'over-the-shoulder perspective showing the important consequence',
+  'tension-building close-up with distinct blocking and lighting'
+ ];
+ return segments.map((part,index)=>{
+  const beat=words.slice(part.start,part.end).join(' ');
+  const action=(beat.match(DRAMATIC_ACTIONS)||[]).length>0;
+  return {index,total,beat,words:part.end-part.start,
+    estimatedSeconds:Math.round((part.end-part.start)/2.35*10)/10,
+    shot:index===0?'establishing cinematic wide shot introducing characters and location'
+     :index===total-1?'emotional concluding composition with the narrative consequence'
+     :shots[(index+(action?2:0))%shots.length],
+    action};
+ });
 }
 export function scenePrompt(post,scene){
  const channel=post.channel;
  if(!['panex','heros'].includes(channel))throw Error('Storyboard hanya untuk channel YouTube');
- if(!Number.isInteger(scene.index)||scene.index<0||scene.index>=CINEMATIC_SCENE_COUNT)throw Error('Nomor adegan tidak valid');
+ if(!Number.isInteger(scene.index)||!Number.isInteger(scene.total)||
+    scene.index<0||scene.index>=scene.total||scene.total<2||
+    scene.total>MAX_STORYBOARD_SCENES)throw Error('Nomor/jumlah adegan tidak valid');
  const style=channel==='heros'
   ?'high-end original superhero fantasy concept art, vivid cinematic light, expressive original heroic costume, dramatic atmosphere'
   :'high-end cinematic realistic Indonesian life-drama film still, warm natural human expression, tactile environment, film lighting';
  const base=String(post.image_prompt||'').slice(0,300);
- return [style,'Portrait 9:16 vertical composition. Distinct story beat',scene.index+1,'of 4.',
- 'Maintain the original character identity, clothing palette and location across all four frames.',
- 'Original character and environment guide:',base,
- 'Narrative beat (translate its situation visually without rendering written words):',scene.beat,
- 'Camera composition:',scene.shot,
- 'A distinct scene with meaningful visible narrative action, not the exact same pose or background.',
- 'NO captions, NO lettering, NO watermarks, NO logos, NO recognizable copyrighted superhero characters.'].join(' ').slice(0,1150);
+ return [style,'Portrait 9:16 vertical composition. A distinct narrative scene',scene.index+1,'of',scene.total+'.',
+ 'Maintain consistent original character face, outfit colors and setting across the story.',
+ 'Visual identity reference:',base,
+ 'Narrative moment (illustrate the action and emotion without adding lettering):',scene.beat,
+ 'Shot direction:',scene.shot,
+ 'A visually DIFFERENT meaningful moment, no duplicate pose or reused frame.',
+ 'NO captions, NO lettering, NO watermarks, NO logos, NO recognized copyrighted superhero characters.'].join(' ').slice(0,1400);
 }

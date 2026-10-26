@@ -156,3 +156,5 @@
 - 29 regression/source/mock tests passed in isolated JS harness; actual user-device review remains pending. Existing OAuth/Cloudflare secrets unchanged.
 
 - Final v1.6.0 safeguard: owner-initiated replanning archives previous scene indices/private KV keys in the existing audit before unlinking stale storyboard metadata; cover replacement also invalidates an outdated plan. No previous image file is deleted.
+
+- Final rollout safety verification: live Ceritexa Worker latest version 100% traffic, all four navigation views and persistent session middleware included, 8 original drafts preserved, 6 encrypted secrets and 2 Crons unchanged, ALLOW_PUBLICATION=false; changed PWA public shell cache key to 1.7.1 to force service-worker update on installed phones. Latest completed CI before cache key change (#210) passed, subsequent CI to confirm.

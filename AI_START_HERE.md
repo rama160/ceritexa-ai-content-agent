@@ -1,5 +1,5 @@
 # AI START HERE — Ceritexa canonical rules
-Version 1.5.0 — 2026-10-25
+Version 1.6.0 — 2026-10-26
 
 1. Always read this file, PHASE.md, CHANGELOG.md, PRD.md and ARSITEKTUR.md before work.
 2. Edit existing owner modules rather than writing similar/duplicate files; do not add suffixes *_fixed, *_new, _v2.
@@ -63,3 +63,10 @@ Version 1.5.0 — 2026-10-25
 51. Owner-only upgrade-video POST converts ONLY unapproved PENDING_REVIEW MP4 back to BLOCKED/JPEG after confirmation; prior MP4 stays stored in KV. Never change APPROVED/SCHEDULED/PUBLISHED drafts. No social posting: ALLOW_PUBLICATION=false.
 
 52. v1.5.0 includes a PRIVATE storyboard gallery on existing installed dashboard. Handler openStoryboardGallery() reuses one mediaDialog and GET /api/posts/:id/storyboard + protected JPEG paths. No new frontend module. All blob: URLs must be revoked on dismiss and API responses never cached.
+
+59. v1.6.0 SUPERSEDES old exact four-scene rules. Count is derived from changes of scene/action and genre pacing in canonical sceneBeats(story,channel) in src/core.js. The entire original narrative must be preserved in ordered beats. Never auto-compress to four frames.
+60. MAX_STORYBOARD_SCENES=24 is a defensive Shorts safety ceiling, NOT a fixed storyboard target. SCENES_PER_REQUEST=3 limits per-request AI generation. SCENE_IMAGE_DAILY_LIMIT=12 restricts new free-tier image creation, NOT the number of planned narrative scenes. When quota is exhausted, retain partial assets and return ready=false/dailyLimitReached=true; resume later.
+61. Migration 0004_dynamic_storyboard.sql enlarges the SAME video_storyboard table's original scene_index constraint from 0..3 to 0..63 via a staging copy/swap and restores its index. Production D1 row count was verified to remain 4 before/after. This is a versioned migration, NOT a duplicate permanent storyboard table. Never reset D1 or delete KV pictures.
+62. GET /api/posts includes planned_scene_count on each VIDEO. Private storyboard returns plannedCount, sceneCount, remaining, stale, ready, and dailyLimitReached. A modified narration invalidates old beats; owner POST rebuilds only storyboard DB links while keeping old KV assets. Three images at most per call; the GitHub renderer repeats until completion or visible quota failure.
+63. Existing tools/render_video.py dynamically requires exactly plannedCount unique JPEG shots and computes each shot duration in proportion to its original narration word count and actual neural audio length. FFmpeg accepts 2–24 shots. Previously four-scene-only tests/UI/docs must not govern current behavior.
+64. Use only existing src/core.js, src/index.js, tools/render_video.py and tests/core.test.js. Rendered output is still moving-camera original illustrations, not physically animated actors. No paid image-to-video, no changes to Facebook/YouTube secrets, ALLOW_PUBLICATION=false.

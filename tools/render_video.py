@@ -194,14 +194,17 @@ def get_storyboard_images(ident: str, folder: Path):
 
 
 def motion_graph(scene_count: int, voice_duration: float, subtitle_file: Path):
-    """One motion camera per story beat, crossfade the contiguous beats, then subtitles."""
+    """Four animated-camera shots with per-shot fade transitions and synced subtitles.
+
+    FFmpeg concat+fade is more portable on ubuntu-latest than xfade with zoompan,
+    which may report frame_rate=1/0 on some FFmpeg versions.
+    """
     if scene_count != 4 or not (8 < voice_duration <= 59):
         raise ValueError("Motion edit requires 4 scenes and 8-59 seconds of narration")
-    fade = 0.38
-    segment = (voice_duration + (scene_count - 1) * fade) / scene_count
+    segment = voice_duration / scene_count
+    fade = min(.32, segment / 8)
     filters = []
     for i in range(scene_count):
-        # Different pan/dolly behavior on every shot, but no fake character walking animation.
         zoom = ["min(zoom+0.00075,1.13)", "min(zoom+0.00060,1.12)",
                 "min(zoom+0.00090,1.17)", "min(zoom+0.00055,1.11)"][i]
         x = "iw/2-(iw/zoom/2)" if i % 2 == 0 else "max(0,iw/2-(iw/zoom/2))"
@@ -209,19 +212,15 @@ def motion_graph(scene_count: int, voice_duration: float, subtitle_file: Path):
         filters.append(
             f"[{i}:v]scale=600:1068:force_original_aspect_ratio=increase,"
             f"crop=600:1068,zoompan=z='{zoom}':x='{x}':y='{y}':d=1:s=540x960:fps=24,"
-            f"trim=duration={segment:.3f},settb=AVTB,setpts=PTS-STARTPTS[v{i}]"
+            f"fps=24,trim=duration={segment:.3f},settb=AVTB,setpts=PTS-STARTPTS,"
+            f"fade=t=in:st=0:d={fade:.3f},"
+            f"fade=t=out:st={segment-fade:.3f}:d={fade:.3f}[v{i}]"
         )
-    prior = "v0"
-    for i in range(1, scene_count):
-        nxt = f"mix{i}"
-        transition = ("fade", "wipeleft", "fade")[i-1]
-        offset = i * (segment - fade)
-        filters.append(f"[{prior}][v{i}]xfade=transition={transition}:"
-                       f"duration={fade:.3f}:offset={offset:.3f}[{nxt}]")
-        prior = nxt
+    filters.append("".join(f"[v{i}]" for i in range(scene_count))+
+                   f"concat=n={scene_count}:v=1:a=0[merged]")
     srt = str(subtitle_file).replace("'", "\\'")
     filters.append(
-        f"[{prior}]subtitles='{srt}':"
+        f"[merged]subtitles='{srt}':"
         "force_style='FontName=DejaVu Sans,FontSize=16,Outline=2,Shadow=0,MarginV=115'[outv]"
     )
     return ";".join(filters), segment
@@ -301,8 +300,8 @@ def main():
             assert not eligible([{"format": "VIDEO", "channel": "panex", "state": "PENDING_REVIEW", "media_type": "video/mp4", "risk_note": "", "media_key": "owner/1.mp4"}])
             assert voice_for_channel("panex") in ("id-ID-GadisNeural","id-ID-ArdiNeural")
             graph, segment = motion_graph(4, 40.0, Path(temp) / "caption.srt")
-            assert graph.count("xfade=") == 3 and "zoompan=" in graph
-            assert segment > 10.0
+            assert graph.count("fade=t=in") == 4 and "zoompan=" in graph and "concat=n=4" in graph
+            assert 9.5 < segment < 10.5
             assert "subtitles=" in graph
 
         print("Renderer self-test PASS")

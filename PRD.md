@@ -1,4 +1,4 @@
-# PRD — Ceritexa AI Content Agent 1.4.0
+# PRD — Ceritexa AI Content Agent 1.5.0
 Tanggal: 25 Oktober 2026 | Status: IMPLEMENTASI BERTAHAP
 
 ## Produk, pemilik dan batasan
@@ -93,3 +93,11 @@ Tests + build green, Cloudflare bound and deploy, admin denied without token, po
 - Green GitHub Actions status requires confirmed MP4 upload and D1 post state=PENDING_REVIEW/media_type=video/mp4. Renderer failure must produce nonzero process exit.
 - Renderer must verify video and audio, H264 codec, vertical MP4 and size, preserve story, and only accept a correct upload acknowledgement. Show renderer errors on the actual PWA draft.
 - Static JPEG cover remains a thumbnail; actual MP4 gives an obvious ▶ Putar MP4 button. No public publishing and owner approval remains necessary.
+
+## v1.5.0 — Cinematic storyboard, natural-sounding Indonesian narration
+- Owner rejected previous single static image + espeak-ng voice and approximate captions as below intended quality. New renderer MUST use FOUR UNIQUE visual scenes with framing, moving virtual camera, fading transitions and voice-synchronized captions.
+- Humanlike neural Indonesian TTS for Panex/Heros, default Gadis/Ardi, never robotically downgrade on failure. Narrator is synthetic, not a real person; confirm commercial voice license before monetization.
+- Label output honestly as CINEMATIC_MOTION_COMIC. Camera moves over original AI illustrations; characters do NOT physically animate. True text/image-to-video is a separate explicitly approved PAID future capability, OFF by default.
+- Owner reviews storyboard, can voluntarily upgrade an unapproved MP4, and approves new MP4 independently. Previously approved/scheduled/published content is never changed by re-render.
+- Four storyboard keys in the additive canonical D1 table, 12 new AI scene cap per day, no charged models, <=7.5MB vertical H264/AAC MP4, 8-59 second speech and synchronized SRT.
+- Acceptance: four visually distinct beats, valid moving-camera 540x960 video, coherent neural narration, timed subtitles, actual D1 upload confirmation and full review in installed PWA. Approval/public posting remains separate.

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {CHANNELS,validate,detectRisk,parseRss,score,parseAI,compareToken,gate,readiness,selectDraftTopic,EDITORIAL_TOPICS} from '../src/core.js';
+import {CHANNELS,validate,detectRisk,parseRss,score,parseAI,compareToken,gate,readiness,selectDraftTopic,EDITORIAL_TOPICS,validateRejection,creativeSimilarity,MAX_REVISION_DEPTH,REJECTION_REASONS} from '../src/core.js';
 test('kanal terisolasi',()=>{assert.match(CHANNELS.panex.topic,/keluarga/);assert.match(CHANNELS.heros.topic,/superhero/);assert.throws(()=>validate('panex','TEXT'));assert.equal(validate('facebook','PHOTO'),true)});
 test('mengurai RSS',()=>{const x='<item><title><![CDATA[Drama &amp; Keluarga]]></title><link>https://example.org/a</link></item>';assert.equal(parseRss(x)[0].topic,'Drama & Keluarga')});
 test('menolak IP eksternal',()=>{assert.ok(detectRisk('Batman'));assert.equal(score('Marvel hero','heros'),0)});
@@ -35,8 +35,9 @@ test('readiness checks never expose secret values or mark provider tests verifie
 test('dashboard inline JavaScript must compile',()=>{
  const workerSource=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
  const inline=workerSource.match(/<script>\s*([\s\S]*?)<\/script>/)?.[1];
+ const hydrated=inline?.replace(/\$\{JSON\.stringify\(REJECTION_REASONS\)\}/g,JSON.stringify(REJECTION_REASONS));
  assert.ok(inline,'Dashboard inline script found');
- assert.doesNotThrow(()=>new vm.Script(inline));
+ assert.doesNotThrow(()=>new vm.Script(hydrated));
 });
 
 test('channel editorial filter rejects unrelated viral football trends',()=>{
@@ -51,4 +52,33 @@ test('draft selector honors explicit owner topic and genuinely relevant channel 
  assert.equal(selectDraftTopic('facebook',{userTopic:'Cerita pilihan saya',trends:[{topic:'klasemen liga jerman'}]}),'Cerita pilihan saya');
  assert.match(selectDraftTopic('heros',{trends:[{topic:'klasemen liga jerman'},{topic:'Superhero orisinal menyelamatkan kota'}]}),/Superhero orisinal/);
  assert.throws(()=>selectDraftTopic('heros',{userTopic:'Batman'}));
+});
+
+test('rejection choices and hard depth cap',()=>{
+ assert.ok(REJECTION_REASONS.length>=6);
+ assert.equal(MAX_REVISION_DEPTH,3);
+ assert.equal(validateRejection('Cerita kurang menyentuh','buat lebih hangat',0).maxReached,false);
+ assert.equal(validateRejection('Judul kurang menarik','',3).maxReached,true);
+ assert.throws(()=>validateRejection('Alasan lain','',0),/catatan/);
+ assert.throws(()=>validateRejection('invalid','',0),/alasan/);
+ assert.equal(validateRejection('Gambar kurang cocok','a'.repeat(1000),2).note.length,500);
+});
+test('regenerated text must be different from rejected original',()=>{
+ const original='Seorang ibu penjual nasi mengorbankan uangnya untuk membayar sekolah seorang anak dan keluarga bahagia';
+ const similar=creativeSimilarity(original,original);
+ const different=creativeSimilarity(original,'Pahlawan cahaya berjuang melindungi kota dari monster yang tak terlihat');
+ assert.equal(similar,1);
+ assert.ok(different<0.68);
+});
+test('Worker single module and authenticated preview/reject routes parse',()=>{
+ const core=readFileSync(new URL('../src/core.js',import.meta.url),'utf8');
+ const original=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
+ const inlineCore=core.replace(/^export /gm,'');
+ const worker=original.replace(/^import[^\n]*\n/,'').replace(/^export /gm,'').replace('default{','const __worker={');
+ assert.doesNotThrow(()=>new vm.Script(inlineCore+'\n'+worker));
+ assert.match(original,/\/api\/preview\//);
+ assert.match(original,/async function rejectDraft/);
+ assert.match(original,/async function retryRegeneration/);
+ assert.match(original,/data-reject/);
+ assert.match(original,/id="brandLogo"/);
 });

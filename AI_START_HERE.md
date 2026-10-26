@@ -1,5 +1,5 @@
 # AI START HERE — Ceritexa canonical rules
-Version 1.4.0 — 2026-10-25
+Version 1.4.1 — 2026-10-25
 
 1. Always read this file, PHASE.md, CHANGELOG.md, PRD.md and ARSITEKTUR.md before work.
 2. Edit existing owner modules rather than writing similar/duplicate files; do not add suffixes *_fixed, *_new, _v2.
@@ -43,3 +43,7 @@ Version 1.4.0 — 2026-10-25
 34. PWA public routes are GET /manifest.webmanifest, /sw.js, /icon-192.svg, /icon-512.svg and /icon-96.jpg. They do not require admin authorization. Manifest uses display=standalone, scope=/, start_url=/ and original Ceritexa branding. The dashboard registers the service worker only on HTTPS and supports beforeinstallprompt as available, with an Android Chrome menu fallback.
 35. SECURITY CRITICAL: service-worker cache contains ONLY the public HTML shell and icons/manifest. Do not cache ANY /api/ response, private photo/video/blob, bearer authorization header, draft content, analytics, access token or admin token. On offline startup show shell but API operations require internet and private login. Never save ADMIN_TOKEN in localStorage, IndexedDB, Cookies, cache, or manifest.
 36. All changes stay on ceritexa-content-agent Worker only; published posting remains ALLOW_PUBLICATION=false. Update existing tests/core.test.js plus documentation on every PWA change. If PWA browser prompt is absent, document manual Chrome menu installation rather than claiming guaranteed prompt.
+
+37. v1.4.1 media viewing is OWNED by existing src/index.js and tests/core.test.js. Do NOT add separate viewer files/controllers. A private media button opens the visible mediaDialog modal immediately, then retrieves media with an admin Bearer token and shows loading/errors, zoomable image or playable MP4 video with native controls and playsInline.
+38. Always differentiate JPEG artwork from an MP4 video: VIDEO drafts in BLOCKED/VIDEO_RENDER_REQUIRED are illustration-only until render-video.yml produces an actual MP4. Never label a JPEG as “Putar video”. Dialog close MUST pause playback, revoke blob URLs and clear DOM. The CSP `media-src 'self' blob:` is required for in-memory private video playback.
+39. Preserve PWA service-worker behavior: /api/media, /api/preview, credentials and all draft responses MUST NOT be cached. Browser/device acceptance is separate from code and Cloudflare deployment tests.

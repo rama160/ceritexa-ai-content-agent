@@ -235,3 +235,51 @@ test('all currently unrendered VIDEO draft buttons show illustration status, not
  assert.match(setup.page,/Render melalui/);
  assert.match(setup.page,/github\.com\/rama160\/ceritexa-ai-content-agent\/actions\/workflows\/render-video\.yml/);
 });
+
+test('renderer cannot report COMPLETED unless MP4 has been verified in D1',async()=>{
+ const core=readFileSync(new URL('../src/core.js',import.meta.url),'utf8').replace(/^export /gm,'');
+ const idx=readFileSync(new URL('../src/index.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/,'').replace(/^export /gm,'').replace('default{','const __worker={');
+ const app=new Function(core+'\n'+idx+'\nreturn __worker;')();
+ const id='11111111-1111-4111-8111-111111111111',events=[];
+ let media_type='image/jpeg',state='BLOCKED';
+ const env={ADMIN_TOKEN:'THIS_IS_A_TEST_ADMIN_TOKEN_NEVER_PRODUCTION',DB:{
+  prepare(sql){return {bind(...args){return {
+   first:async()=>({id,channel:'panex',format:'VIDEO',state,media_type}),
+   run:async()=>{if(sql.startsWith('INSERT INTO audit'))events.push(args);return {meta:{changes:1}};},
+   all:async()=>({results:[]})
+  }}}}
+ }};
+ const send=(status)=>app.fetch(new Request('https://ceritexa.test/api/posts/'+id+'/render-event',{
+  method:'POST',headers:{Authorization:'Bearer '+env.ADMIN_TOKEN,'Content-Type':'application/json'},
+  body:JSON.stringify({status,detail:'Renderer diagnostics'})
+ }),env);
+ assert.equal((await send('STARTED')).status,200);
+ assert.equal(events.length,1);
+ assert.equal((await send('COMPLETED')).status,400);
+ assert.equal(events.length,1);
+ assert.equal((await send('FAILED')).status,200);
+ media_type='video/mp4';state='PENDING_REVIEW';
+ assert.equal((await send('COMPLETED')).status,200);
+ assert.equal(events.length,3);
+ const unauthorized=await app.fetch(new Request('https://ceritexa.test/api/posts/'+id+'/render-event',{
+  method:'POST',headers:{'Content-Type':'application/json'},body:'{"status":"COMPLETED"}'
+ }),env);
+ assert.equal(unauthorized.status,401);
+});
+test('renderer failures are explicit and live card distinguishes MP4 from JPEG',async()=>{
+ const src=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
+ const py=readFileSync(new URL('../tools/render_video.py',import.meta.url),'utf8');
+ const workflow=readFileSync(new URL('../.github/workflows/render-video.yml',import.meta.url),'utf8');
+ assert.match(src,/RENDER_FAILED/);
+ assert.match(src,/render_event/);
+ assert.match(src,/playOverlay=isMp4/);
+ assert.match(src,/data-media-label="Putar video MP4"/);
+ assert.match(py,/def verify_upload/);
+ assert.match(py,/def verify_mp4/);
+ assert.match(py,/sys\.exit\(main\(\)\)/);
+ assert.match(py,/failures \+= 1/);
+ assert.match(py,/::error::/);
+ assert.match(workflow,/python tools\/render_video\.py --self-test/);
+ assert.match(workflow,/Validate Ceritexa GitHub secret/);
+ assert.match(workflow,/Render and VERIFY MP4 upload/);
+});

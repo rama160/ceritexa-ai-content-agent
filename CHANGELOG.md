@@ -1,4 +1,12 @@
 # CHANGELOG
+## 1.7.0 — 2026-10-26
+- Applied owner-approved Ceritexa Studio v3 four-page responsive Home, Draft (Review/Disetujui), Analitik, Tren dashboard in existing src/index.js. Removed cluttered integration-readiness panel from UI; retained backend diagnostics. Rejected drafts are excluded from active lists without deleting D1 history or the existing AI regeneration loop.
+- Reconnected real D1 posts, trend research, real metric series/empty states, draft generation, edit, approve/reject, preview JPEG/MP4, dynamic storyboard, media upload, owner-only cinematic rerender and scheduling; no duplicated backend or paid services.
+- Added durable session authentication using additive Ceritexa-only migration 0005_owner_sessions.sql (admin_sessions and admin_login_limits). Owner enters Admin Token once; private hashed 256-bit session is stored on the server and referenced by secure HttpOnly SameSite Strict cookie. Owner reload/app reopening uses /api/auth/me; logout revokes server session and clears cookie. Admin token rotation invalidates prior cookie hashes; CSRF and repeated login failures restricted.
+- Preserved existing GitHub renderer Authorization Bearer contract and immutable MP4 protections. Updated installable PWA shell cache to v1.7.0; no /api/ or user media cached.
+- 36/36 JS mock/regression tests pass including login, repeated session checks, logout, cross-site POST denial and renderer bearer acceptance. Cloudflare isolated Worker HTTP 200 deploy, latest version 100% confirmed, six secrets and two Cron jobs intact, ALLOW_PUBLICATION=false. Actual owner-device login still to be tested interactively.
+- No modifications to Nusa Penida Experiences, Spenva/Finchat, or other Cloudflare services.
+
 ## 1.6.1 — 2026-10-26
 - **Real GitHub Actions E2E PASSED**: a temporary original 96-word Panex draft was split into 8 narrative-dependent scenes, generated 7 private AI images plus its cover, narrated by id-ID-GadisNeural and saved as a verified 4,398,587-byte MP4 with D1 PENDING_REVIEW and RENDER_COMPLETED.
 - Fixed media overwrite bug in existing Worker upload handler: versioned unique owner/<post_id>/<uuid>.<extension> keys preserve prior MP4 and image objects; guarded D1 update prevents an upload race from reverting approved/scheduled content. Added regression mock test (33/33 PASS).

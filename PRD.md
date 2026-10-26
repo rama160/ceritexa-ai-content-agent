@@ -1,4 +1,4 @@
-# PRD — Ceritexa AI Content Agent 1.5.0
+# PRD — Ceritexa AI Content Agent 1.6.0
 Tanggal: 25 Oktober 2026 | Status: IMPLEMENTASI BERTAHAP
 
 ## Produk, pemilik dan batasan
@@ -101,3 +101,11 @@ Tests + build green, Cloudflare bound and deploy, admin denied without token, po
 - Owner reviews storyboard, can voluntarily upgrade an unapproved MP4, and approves new MP4 independently. Previously approved/scheduled/published content is never changed by re-render.
 - Four storyboard keys in the additive canonical D1 table, 12 new AI scene cap per day, no charged models, <=7.5MB vertical H264/AAC MP4, 8-59 second speech and synchronized SRT.
 - Acceptance: four visually distinct beats, valid moving-camera 540x960 video, coherent neural narration, timed subtitles, actual D1 upload confirmation and full review in installed PWA. Approval/public posting remains separate.
+
+## v1.6.0 — Narrative-led scene count (supersedes historical fixed-4 requirement)
+- The director agent picks storyboard cuts from narrative developments, plot twists, action, changes of scene/character, punctuation and channel pacing. It must not silently omit story beats to comply with a fixed scene count.
+- Preserve every word in an ordered narration beat. Panex may hold emotional framing; Heros may use faster action cuts. Same-length scripts can legitimately have different shot counts. Display planned count and progress in the installed PWA.
+- No fixed four-scene requirement; a defensive maximum of 24 shots protects Shorts from broken inputs. Use actual neural voice duration and spoken word ratios to time each shot, not equal-duration cuts.
+- The 12-extra-images-per-day free resource guard is independent from shot planning. If a storyboard needs more frames, show incomplete progress and permit continuation instead of automatically reducing the story.
+- Re-render of an older MP4 requires the owner and must preserve existing object bytes. All new MP4 files still require explicit review, no public posting.
+- Acceptance: distinct Panex/Heros scripts create different counts; narrative is fully preserved; historical D1 rows survive migration; FFmpeg valid 6- and 10-scene H264/AAC output verified; private access maintained.

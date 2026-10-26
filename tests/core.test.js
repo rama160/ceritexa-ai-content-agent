@@ -232,6 +232,6 @@ test('all currently unrendered VIDEO draft buttons show illustration status, not
  const idx=readFileSync(new URL('../src/index.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/,'').replace(/^export /gm,'').replace('default{','const __worker={');
  const setup=new Function(core+'\n'+idx+'\nreturn {page};')();
  assert.match(setup.page,/MP4 belum siap/);
- assert.match(setup.page,/VIDEO_RENDER_REQUIRED/);
+ assert.match(setup.page,/Render melalui/);
  assert.match(setup.page,/github\.com\/rama160\/ceritexa-ai-content-agent\/actions\/workflows\/render-video\.yml/);
 });

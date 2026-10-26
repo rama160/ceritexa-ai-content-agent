@@ -1,5 +1,5 @@
 # AI START HERE — Ceritexa canonical rules
-Version 1.4.1 — 2026-10-25
+Version 1.4.2 — 2026-10-25
 
 1. Always read this file, PHASE.md, CHANGELOG.md, PRD.md and ARSITEKTUR.md before work.
 2. Edit existing owner modules rather than writing similar/duplicate files; do not add suffixes *_fixed, *_new, _v2.
@@ -47,3 +47,9 @@ Version 1.4.1 — 2026-10-25
 37. v1.4.1 media viewing is OWNED by existing src/index.js and tests/core.test.js. Do NOT add separate viewer files/controllers. A private media button opens the visible mediaDialog modal immediately, then retrieves media with an admin Bearer token and shows loading/errors, zoomable image or playable MP4 video with native controls and playsInline.
 38. Always differentiate JPEG artwork from an MP4 video: VIDEO drafts in BLOCKED/VIDEO_RENDER_REQUIRED are illustration-only until render-video.yml produces an actual MP4. Never label a JPEG as “Putar video”. Dialog close MUST pause playback, revoke blob URLs and clear DOM. The CSP `media-src 'self' blob:` is required for in-memory private video playback.
 39. Preserve PWA service-worker behavior: /api/media, /api/preview, credentials and all draft responses MUST NOT be cached. Browser/device acceptance is separate from code and Cloudflare deployment tests.
+
+40. Renderer status must be truthful: GitHub Actions Success is NOT proof MP4 exists. Canonical tools/render_video.py must exit nonzero when any attempted render or upload fails. It verifies MP4 H264+audio, signed upload response, and D1 media_type=video/mp4 state=PENDING_REVIEW.
+41. Canonical renderer is existing tools/render_video.py and existing .github/workflows/render-video.yml only. No duplicate or parallel engine. Private POST /api/posts/:id/render-event writes STARTED,FAILED,COMPLETED audit events. Completion is blocked unless D1 confirms MP4. No additional tables or credentials.
+42. Installed PWA may show a JPEG cover for a real MP4, but actual video will have ▶ Putar MP4 overlay; blocked JPEG displays explanatory message and latest renderer event. No media auto-publishing. PUBLICATION=false.
+43. Github workflow now has preflight/self-test, missing-secret failure, red failure logs, summary, existing schedule and a push trigger limited to renderer/workflow changes, so an internal retry may run without owner approving public posting.
+44. Never say renderer succeeded unless the actual D1 post has media_type video/mp4 and state PENDING_REVIEW; inspect Actions error and exact D1 state.

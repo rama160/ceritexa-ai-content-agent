@@ -454,3 +454,42 @@ test('renderer supports variable length story images and proportional narration 
  assert.ok(!py.includes('scene_count != 4'));
  assert.match(py,/scene_count=\{len\(scenes\)\}/);
 });
+
+test('versioned MP4 upload keeps previous videos and never rolls back approved status',async()=>{
+ const core=readFileSync(new URL('../src/core.js',import.meta.url),'utf8').replace(/^export /gm,'');
+ const idx=readFileSync(new URL('../src/index.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/,'').replace(/^export /gm,'').replace('default{','const __worker={');
+ const app=new Function(core+'\n'+idx+'\nreturn __worker;')();
+ const id='aaaa0000-bbbb-4000-8000-cccc00000001',oldKey='owner/'+id+'.mp4',admin='TestAdminTokenLongEnough123456789';
+ const post={id,channel:'panex',format:'VIDEO',media_key:oldKey,media_type:'video/mp4',state:'PENDING_REVIEW'};
+ const keys=new Set([oldKey]);let forceRace=false,recorded=[];
+ const env={ADMIN_TOKEN:admin,MEDIA:{
+   put:async key=>{keys.add(key);if(forceRace)post.state='APPROVED';}
+  },DB:{
+   prepare(sql){return{bind(...p){return{
+    first:async()=>post,
+    all:async()=>({results:[]}),
+    run:async()=>{
+     if(sql.startsWith('UPDATE posts SET media_key')){
+      if(!['PENDING_REVIEW','BLOCKED'].includes(post.state))return{meta:{changes:0}};
+      post.media_key=p[0];post.media_type=p[1];post.state='PENDING_REVIEW';return{meta:{changes:1}};
+     }
+     if(sql.startsWith('INSERT INTO audit'))recorded.push(p);
+     return {meta:{changes:1}};
+    }
+   }}}}
+  }};
+ const bytes=new Uint8Array(512);bytes.set([102,116,121,112],4);
+ const request=()=>new Request('https://ceritexa.test/api/posts/'+id+'/media',
+  {method:'POST',headers:{Authorization:'Bearer '+admin,'Content-Type':'video/mp4'},body:bytes});
+ const first=await app.fetch(request(),env);assert.equal(first.status,200);
+ const key1=(await first.json()).media_key;
+ assert.ok(key1.endsWith('.mp4'));assert.notEqual(key1,oldKey);
+ const second=await app.fetch(request(),env);assert.equal(second.status,200);
+ const key2=(await second.json()).media_key;assert.notEqual(key2,key1);
+ assert.ok(keys.has(key1)&&keys.has(key2)&&keys.has(oldKey));
+ assert.equal(post.media_key,key2);
+ forceRace=true;
+ const stale=await app.fetch(request(),env);assert.equal(stale.status,400);
+ assert.equal(post.state,'APPROVED');assert.equal(post.media_key,key2);
+ assert.ok(recorded.length>=2);
+});

@@ -1,4 +1,4 @@
-# Ceritexa AI Content Agent — v1.3.0
+# Ceritexa AI Content Agent — v1.4.0
 
 An isolated Cloudflare Worker and GitHub Actions project for:
 - **Ceritexa Studio** (Facebook Page, text/photo/comic)
@@ -133,9 +133,9 @@ Ceritexa's public branding site now lives in this repository's **single canonica
 - The channel owner's dashboard showed facebook, panex and heros identity tests with verified=true. This verifies provider identity connectivity, not posting permissions through a real provider write request.
 - The original selector allowed an unrelated trending Bundesliga leaderboard topic to influence Heros and Facebook fiction. Version 1.2.2 fixes this by matching each trend to channel editorial keywords, otherwise using owner-approved original editorial topic seeds. Previously created off-topic drafts remain in review and should be edited or left unapproved.
 - Manual smoke test: Dashboard → channel Facebook Ceritexa → format TEXT → enter your own original story topic → Buat draft once. Expected: a new `PENDING_REVIEW` entry with title, caption, 150–220 word narrative, without posting or scheduling. Then test PHOTO, COMIC and video renderer separately.
-- Deployment of v1.3.0 verified through Cloudflare management API: latest Worker revision is 100% live, all six previously configured secrets (admin, Facebook, and Google credentials) remain in place, `ALLOW_PUBLICATION=false`, and both scheduled triggers remain. External platform publishing E2E is still pending.
+- Deployment of v1.4.0 verified through Cloudflare management API: latest Worker revision is 100% live, all six previously configured secrets (admin, Facebook, and Google credentials) remain in place, `ALLOW_PUBLICATION=false`, and both scheduled triggers remain. External platform publishing E2E is still pending.
 
-## Visual approval and AI rejection improvements — v1.3.0
+## Visual approval and AI rejection improvements — v1.4.0
 
 Open the Ceritexa dashboard at https://ceritexa-content-agent.finchat-ai-gateway.workers.dev/ and sign in with your existing private ADMIN_TOKEN. No new secret or OAuth authorization is required.
 
@@ -151,3 +151,19 @@ The sole additive migration is migrations/0002_review_feedback.sql (draft_review
 **Verification:** D1 migration created review metadata for six preexisting drafts; the live Cloudflare Worker script contains the logo, reject/regenerate, preview and media revision handlers and is assigned 100% traffic. Core/dashboard parsing and 15 pure tests passed in a JS sandbox; a simulated full reject HTTP flow confirmed original=REJECTED, child=PENDING_REVIEW, ancestry depth=1 and no duplicate on second reject. The GitHub-hosted Node CI result and real owner-session browser flow still need independent confirmation.
 
 **Security:** ALLOW_PUBLICATION remains false, and the existing Facebook, Panex and Heros tokens stay unchanged. No public content was posted, no legacy draft was deleted, and unrelated Workers were not touched.
+
+## Install dashboard Ceritexa as an Android app — v1.4.0
+
+No APK or Google Play subscription is necessary. The existing dashboard now supports Progressive Web App (PWA) installation from Android Chrome/Samsung Internet, reusing the same Worker, social accounts, draft review and admin login.
+
+1. On your Android phone **open Google Chrome directly**, not an in-app browser, at https://ceritexa-content-agent.finchat-ai-gateway.workers.dev/ .
+2. Reload the page after this deployment. A **Pasang Ceritexa di HP** card will appear near the header. If an **Instal Ceritexa** button appears, tap it and accept the browser prompt.
+3. If no install button appears, tap Chrome's **⋮** menu → **Tambahkan ke layar utama / Add to Home screen** → **Instal aplikasi / Install app** (labels vary by Chrome version). Chrome may show 'Create shortcut' if the current device is not offering WebAPK installation; that still puts an icon on your launcher.
+4. Open **Ceritexa** from your Android home screen/app drawer. It should open in its own window, with the branded icon and without browser address bar when installed as a standalone app. Sign in with your existing ADMIN_TOKEN; no new token is required.
+5. To update the application, open it while online or refresh Chrome. Future Worker UI improvements remain at the same address without reinstalling.
+
+**Offline behavior and security:** The application shell and branding may open without internet, but all private drafts, images, uploads, approvals, rejection feedback, platform operations and stats require an internet connection. The service worker caches only the public HTML shell, manifest and icons and explicitly bypasses all /api/* requests and Authorization headers. The Admin token is never persisted; re-enter it after the application is closed/restarted. This is an intentional security choice.
+
+**Technical routes:** /manifest.webmanifest, /sw.js, /icon-192.svg, /icon-512.svg and /icon-96.jpg are PUBLIC metadata/static routes; private media/API routes still require Bearer Admin Token. Content-Security-Policy restricts service-worker and manifest loading to same origin.
+
+**Testing evidence:** local Worker/router and dashboard syntax check, manifest/HTML/icon/service worker GET responses and unauthorized /api/posts response were simulated successfully. Browser installation on an actual Android launcher must be verified by the owner. Do not claim APK or app-store distribution. ALLOW_PUBLICATION remains false, all prior workflows intact.

@@ -1,4 +1,4 @@
-# Ceritexa AI Content Agent — v1.6.0
+# Ceritexa AI Content Agent — v1.6.1
 
 An isolated Cloudflare Worker and GitHub Actions project for:
 - **Ceritexa Studio** (Facebook Page, text/photo/comic)
@@ -233,3 +233,10 @@ Previous 1.5.0 directions below describe the historical four-shot renderer and a
 - Existing D1 storyboard had 4 rows BEFORE schema evolution and 4 AFTER, with CHECK index expanded to 0..63. No production draft or media object was deleted.
 - 32 existing/regression tests passed in a JS-compatible test harness. Local FFmpeg 540x960 H264/AAC runs with 6 unique scenes (8.16s) and 10 unique scenes (13.39s) both passed. These are synthetic test frames, not a claim that an owner video has been regenerated.
 - Live end-to-end GitHub neural TTS + owner cinematic MP4 remains to be verified separately. Images with camera movement are NOT full character animation and no paid provider has been enabled.
+
+## v1.6.1 — Production-verified dynamic storyboard and safe MP4 rerender
+**Test completed 26 Oct 2026:** The agent successfully generated eight scenes from a 96-word internal Panex story, synthesized Indonesian neural narration and uploaded a 4.40 MB MP4 through the real GitHub Actions / Cloudflare workflow. A second actual renderer run uploaded a NEW versioned 4.40 MB MP4 and proved the first file had not been overwritten. Both ran only on a temporary internal test, with no public posting.
+**Preservation verified:** All temporary test draft/media objects were deleted after success (7 extra JPEGs, 2 MP4s, 1 test draft and related scene/review rows); retained audit evidence. Both owner's original Panex/Heros video files still exist in Ceritexa KV and await owner review; original eight drafts remain. No Facebook/YouTube posts were made.
+**New dashboard use:** Open the installed Ceritexa PWA. If a VIDEO is BLOCKED, the storyboard button now displays the actual planned scene count and builds all available scenes with one tap, stopping on free AI quota when necessary. Use Pratinjau adegan and inspect the complete story. When all images are ready, the existing GitHub Video Renderer builds a real neural-voiced MP4 and returns it to PENDING_REVIEW. For old MP4s, use the opt-in Render ulang jadi video sinematik action only if you want to replace the pending review version; the existing MP4 object is retained, and every NEW upload receives a unique private filename.
+**Operational safeguards:** Public publishing is still OFF (`ALLOW_PUBLICATION=false`); an admin token is required; media API responses are not offline cached; old content cannot be overwritten by rerender, and upload cannot race with approval. The app is still a cinematic motion-comic pipeline with camera motion and scene cuts—NOT automatically generated body/lip motion. The external neural voice service remains unofficial and should be checked for commercial usage.
+**Verification:** 33/33 isolated regression tests passed; both real E2E MP4 uploads verified in D1 audit; Cloudflare Worker 100% active; original 8 posts, six secrets, two Crons preserved. Future owner public platform posting still requires separate provider-level acceptance.

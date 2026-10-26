@@ -1,4 +1,13 @@
 # CHANGELOG
+## 1.5.0 — 2026-10-26
+- Replaced previous one-photo, robotic espeak-ng MP4 composition with four original scene assets, FFmpeg zoompan/fade transitions, natural-sounding Indonesian neural narration from Edge online TTS, and voice-timed subtitles. Provider unofficial; fail-closed and no silent robotic fallback.
+- Added single additive migrations/0003_video_storyboard.sql table in isolated Ceritexa D1; existing cover plus three generated images, resumed idempotently and capped at twelve new images per day. Protected storyboard API/assets implemented in existing Worker, with 4-beat/story/channel prompt rules centralized in src/core.js.
+- Added explicit owner-only Render ulang jadi video sinematik for unapproved MP4, preserving old MP4 object and re-queuing only upon owner confirmation. No approved/published content changed and public posting remains disabled.
+- Local synthetic FFmpeg four-scene visual+audio test produced valid 540x960 MP4/H264/AAC (9s). The first xfade graph failed; fixed to compatible zoompan+fade+concat. Node-style Worker/dashboard syntax and 28 in-tool JS regressions passed (including mocked storyboard creation and upgrade).
+- Deployed revised isolated Ceritexa Worker successfully, latest version 100% active, six original secret bindings and two Crons preserved, ALLOW_PUBLICATION=false. Did not update other accounts or repos.
+- Cloudflare D1 currently shows original Panex and Heros MP4 pending owner review, with 0 storyboard scenes. No real cinematized neural MP4 has yet been independently rendered/tested by GitHub; owner must trigger one explicit upgrade and inspect action outcome.
+- Free video editing uses synthetic motion of illustrations, not full moving actors. Paid third-party image-to-video models remain disabled without explicit budget authorization.
+
 ## 1.4.2 — 2026-10-26
 - Fixed false-green GitHub MP4 rendering: old Python script suppressed every render error. New renderer checks authorization, source, duration, FFmpeg MP4 validity, upload acknowledgement and D1 PENDING_REVIEW/video/mp4. Missing secrets and all failed attempts return nonzero and clear GitHub annotations.
 - Protected Worker now records RENDER_STARTED/FAILED/COMPLETED in existing audit without schema changes and blocks false completed status. Dashboard shows render errors and ▶ Putar MP4 only after a valid upload; cover remains JPEG by design.

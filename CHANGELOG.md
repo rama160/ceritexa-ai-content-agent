@@ -1,4 +1,12 @@
 # CHANGELOG
+## 1.2.2 — 2026-10-26
+- Verified actual Ceritexa Worker draft generation through Cloudflare D1 audit and posts table: new Facebook TEXT and Heros VIDEO drafts; Heros awaits MP4 renderer, zero public-posting claim.
+- Owner screenshot confirmed Facebook Page Ceritexa Studio, Panex and Heros Real Life all verified=true; no credential values shown or modified.
+- Fixed unrelated viral/news topic contamination: src/core.js now owns channel-specific keyword matching, editorial seed pool and reusable selectDraftTopic() helper. src/index.js changed to use this selector rather than latest RSS headline. Older off-brand drafts remain for owner review and are not auto-posted.
+- Added regressions for ignoring soccer-league standings for Panex/Heros and respecting owner-entered topics; seven pure tests and Worker/dashboard JavaScript syntax passed in a tool sandbox. Full GitHub Actions CI not independently confirmed.
+- Deployed only to isolated Ceritexa Worker; latest version reported 100% traffic, all existing Cloudflare Facebook/YouTube/Admin secrets and channel IDs preserved, publication remains OFF and two cron schedules unchanged.
+- Updated AI_START_HERE, PHASE, PRD, architecture, README and canonical CHANGELOG; no duplicate engine/files created.
+
 ## Onboarding documentation update — 2026-10-25
 - Appended current Meta Facebook Page and separate Google OAuth Panex/Heros setup references to the existing README.
 - Owner reports the initial three dashboard/CI setup tasks complete. Provider tokens remain to be configured and verified.

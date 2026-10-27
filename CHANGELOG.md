@@ -1,4 +1,12 @@
 # CHANGELOG
+## 1.8.0 — 2026-10-27
+- Owner-directed transition to semi-automatic STORYBOARD_ONLY: channel-focused research → draft → dynamic storyboard → stop. No scheduled video render/publish/approval; legacy GitHub video workflow now explicit manual opt-in only. Existing publish/schedule APIs hard-block production actions.
+- Scoped Indonesian topical research per channel, no generic world trending: Google News RSS niche queries with lexical relevance, provenance and editorial-not-live fallback. Migration 0006 adds channel+region on same trends table; 20 historic generic rows preserved but excluded. Preloaded 18 clearly labeled editorial niche ideas for immediate use.
+- New sceneMotionPrompt() for physical character motion, identity continuity and camera/dialogue direction. Protected storyboard-package JSON; installed dashboard offers individual image download, prompt copy, per-channel trend tabs and full packet export. No paid video integrations.
+- Long narration support: same D1 storyboard table widened to scene_index 0..255 via migration 0007, preserving all 6 rows. Defensive 128-scene ceiling and 16k owner-edit character limit (auto AI draft still Shorts-focused).
+- Reference video: 475s 480x852 vertical restaurant drama with realistic actor motion/interaction. Previous image zoom+neural narration is not equivalent to full image-to-video; recommendations evaluated independently.
+- Existing v3 dashboard, secure login and unrelated Nusa Penida/Spenva Workers preserved.
+
 ## 1.7.1 — 2026-10-26
 - Hardened owner-approved Ceritexa v3 PWA persistent sessions: temporary offline/server failure displays a dedicated reconnect overlay, manual retry and automatic online retry rather than incorrect login/logout claims.
 - Logout now requires a successful server response and authenticated:false before clearing the dashboard; failed logout keeps the prior session state and displays an error.

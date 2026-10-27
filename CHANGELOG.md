@@ -1,4 +1,10 @@
 # CHANGELOG
+## 1.8.1 — 2026-10-27
+- Fixed the GitHub Actions CI regression caused by matching literal HTML attribute quotes against JSON-escaped Worker page source. Assert the decoded approved v3 HTML instead; checks now cover four navigation pages, draft prompt copying, no readiness panel and no localStorage. GitHub CI run 40507264663 succeeded.
+- Bumped public PWA shell cache to v1.8.1 so mobile installation refreshes the approved dashboard; API auth, private image/video and Bearer tokens are never cached.
+- Revalidated the previously integrated owner-authenticated Home / Draft Review+Approved / Analitik / Tren UI with server-side hashed session cookies, explicit logout and offline reconnect behavior, without changing original private draft content.
+- Preserved owner-selected STORYBOARD_ONLY workflow and the existing publishing gate. Only dedicated Ceritexa Worker targeted; Cloudflare Nusa Penida Experiences and Spenva/Finchat untouched.
+
 ## 1.8.0 — 2026-10-27
 - Owner-directed transition to semi-automatic STORYBOARD_ONLY: channel-focused research → draft → dynamic storyboard → stop. No scheduled video render/publish/approval; legacy GitHub video workflow now explicit manual opt-in only. Existing publish/schedule APIs hard-block production actions.
 - Scoped Indonesian topical research per channel, no generic world trending: Google News RSS niche queries with lexical relevance, provenance and editorial-not-live fallback. Migration 0006 adds channel+region on same trends table; 20 historic generic rows preserved but excluded. Preloaded 18 clearly labeled editorial niche ideas for immediate use.

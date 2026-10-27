@@ -650,7 +650,19 @@ test('storyboards export motion prompts and long episode narration without autom
  assert.equal(beats.map(x=>x.beat).join(' '),story);
  assert.match(sceneMotionPrompt({channel:'panex'},beats[0]),/natural blinking/);
  assert.match(index,/async function storyboardPackage/);
- assert.match(index,/data-action="copy-motion"/);
+ // Dashboard is intentionally JSON-quoted inside src/index.js; assert on its
+ // *decoded* HTML rather than raw escaped source-string characters.
+ const pageMatch=index.match(/const page=("(?:[^"\\]|\\.)*");/);
+ assert.ok(pageMatch,'Production v3 dashboard HTML literal is present');
+ const pageHTML=JSON.parse(pageMatch[1]);
+ assert.match(pageHTML,/data-action="copy-motion"/);
+ assert.match(pageHTML,/data-page="home"/);
+ assert.match(pageHTML,/data-page="draft"/);
+ assert.match(pageHTML,/data-page="analytics"/);
+ assert.match(pageHTML,/data-page="trends"/);
+ assert.doesNotMatch(pageHTML,/Kesiapan Integrasi/i);
+ assert.doesNotMatch(pageHTML,/localStorage/);
+
  assert.match(index,/case 'export-storyboard'/);
  assert.match(index,/imagePath/);
  assert.match(migration,/BETWEEN 0 AND 255/);

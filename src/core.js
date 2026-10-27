@@ -228,6 +228,24 @@ export function sceneBeats(story,channel='panex'){
     action};
  });
 }
+/** Realistic external image-to-video prompt. Describe physical movement, camera,
+ * identity and audio separately; NEVER claim the storyboard itself is a video.
+ */
+export function sceneMotionPrompt(post,scene){
+ if(!['panex','heros'].includes(post.channel))throw Error('Prompt video hanya untuk Panex/Heros');
+ const genre=post.channel==='heros'?'cinematic original fantasy-superhero action':'photorealistic human drama';
+ return [
+  'IMAGE TO VIDEO / live-action',genre,'vertical 9:16. Animate the supplied first frame.',
+  'Keep the SAME character faces, age, costumes, proportions, environment and lighting as the input storyboard image.',
+  'Real physically plausible movement of humans, natural blinking and facial expressions, real hand/body actions.',
+  'Story action to animate:',String(scene.beat||'').slice(0,520),
+  'Camera direction:',String(scene.shot||'cinematic medium shot').slice(0,140)+'.',
+  'Natural cinematic motion, stable anatomy, consistent identity; moderate movement without morphing.',
+  'If there is spoken dialogue, use synchronized lip movement only with separately authorized dialogue/audio.',
+  'No embedded text, no captions, no watermarks, no distorted fingers, no changing faces or wardrobe.',
+  'Generate a 4–8 second clip for this scene; extend or split only after human review.'
+ ].join(' ').slice(0,1550);
+}
 export function scenePrompt(post,scene){
  const channel=post.channel;
  if(!['panex','heros'].includes(channel))throw Error('Storyboard hanya untuk channel YouTube');

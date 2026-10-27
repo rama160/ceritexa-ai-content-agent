@@ -1,4 +1,4 @@
-# Ceritexa AI Content Agent — v1.7.1
+# Ceritexa AI Content Agent — v1.8.0
 
 An isolated Cloudflare Worker and GitHub Actions project for:
 - **Ceritexa Studio** (Facebook Page, text/photo/comic)
@@ -258,3 +258,12 @@ Saat PWA dimuat ulang tanpa koneksi internet, dashboard menampilkan "Koneksi ter
 Tombol Logout menunggu jawaban server. Jika koneksi gagal, dashboard tidak akan mengklaim pengguna sudah keluar; sambungkan internet dan ulangi Logout. Sesi bertahan pada refresh, PWA dibuka kembali, dan browser direstart, kecuali kedaluwarsa, token admin dirotasi, atau data browser dihapus.
 
 **Version 1.7.1 PWA update:** service worker public shell cache is now ceritexa-public-shell-v1.7.1. Reopen the installed app with an internet connection; if an old dashboard persists, open the official Worker URL in Chrome and refresh once. Your server session cookie is kept and should not require logging in again. Confirm Home/Draft/Analitik/Tren and Logout controls on your own device.
+
+
+## v1.8.0 — Semi-automatic storyboarding, no auto-video
+**New owner-selected mode:** Ceritexa researches Indonesian niche topics separately for Panex (family/life drama), Heros Real Life (original superhero/fantasy), and Ceritexa Facebook (life stories). It creates original scripts and dynamic original storyboard frames, then **STOPS**. No automatic FFmpeg/video generation, no neural narrator production, no scheduling and no public posting. Video files already in owner draft review are untouched.
+- Trends: open Tren, choose the channel-specific tab, then Riset terbaru. Google News local query results are labeled topical *news inspiration*, not measured virality; fallback ideas explicitly labeled *not live*. Historical generic topics are hidden but preserved.
+- Storyboard: open Draft → Lihat draft → Lihat adegan. Review scene count based on script; copy motion prompt for each scene, download JPEGs, or export JSON storyboard packet. Each image remains private and requires owner session.
+- Convert to a real moving video **outside** Ceritexa: pilot Google Flow Frames to Video with free browser credits for a few scenes; use local LTX or Wan if a suitable GPU is available. No provider/API keys are connected and no charge authorized.
+- Current automatically generated VIDEO draft is optimized for 85–115-word Shorts. Longer episodes similar to the 7m55s reference can be planned from a longer owner-edited script up to 16k characters (up to 128 defensive scenes), with 12 new AI images/day guard. A future long-form script writer and image-to-video editor require separate approval.
+- Legacy GitHub renderer has no automatic trigger; manual only if user explicitly selects YES on its workflow. Current default never calls it.

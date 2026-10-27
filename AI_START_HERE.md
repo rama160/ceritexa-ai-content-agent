@@ -1,5 +1,5 @@
 # AI START HERE — Ceritexa canonical rules
-Version 1.8.0 — 2026-10-26
+Version 1.8.1 — 2026-10-27
 
 1. Always read this file, PHASE.md, CHANGELOG.md, PRD.md and ARSITEKTUR.md before work.
 2. Edit existing owner modules rather than writing similar/duplicate files; do not add suffixes *_fixed, *_new, _v2.
@@ -111,3 +111,12 @@ Version 1.8.0 — 2026-10-26
 - Video reference uploaded by owner: 475.03s, H264/AAC, 480×852 vertical, multiple realistic restaurant-drama scenes and character dialogue/action. This is full AI/live-action-looking motion, NOT the same as previous FFmpeg pan/zoom motion comic. Accurate product promise: STORYBOARD + human-chosen external image-to-video only.
 - Google Flow has a free browser daily-credit tier (check current eligibility/rights), NOT a free programmable video API for Worker; LTX-2.5 and Wan 2.2 are locally runnable open-weight alternatives requiring powerful GPUs; do NOT auto-connect or incur costs.
 - Preserve v3 4-page dashboard, secure persistent owner login cookie (never localStorage of ADMIN_TOKEN), hidden rejected drafts, review/approved tabs, real analytics, and all separate Cloudflare projects.
+
+## Release v1.8.1 — owner-approved dashboard v3 integration hardening
+- Continue using ONE canonical src/index.js frontend/Worker module. Never duplicate dashboard assets or introduce separate parallel sign-in logic.
+- Dashboard includes exactly four navigable screens Home, Draft (Review and Disetujui with rejected hidden), Analitik (real metrics only) and Tren (channel-specific Indonesian content). No integration/readiness visual clutter.
+- Owner browser authentication uses revocable D1-backed SHA-256 sessions with HttpOnly/Secure/SameSite=Strict cookies; never put ADMIN_TOKEN in localStorage. Reload/PWA reopen checks /api/auth/me and keeps the session active. Logout calls /api/auth/logout and requires positive server confirmation. Unexpected network errors must show reconnect, NOT force a new token prompt. Sessions may expire or be revoked; never promise everlasting token validity.
+- Service worker cache key v1.8.1 refreshes PWA shell but bypasses all /api routes and private media. No browser storage of OAuth or FB/YouTube secrets.
+- GitHub CI test must inspect the DECODED HTML string when checking literal data-action markup. An escaped source literal is not equivalent to rendered HTML. Preserve all storyboard copy/export checks and 4-page checks.
+- Do not change current STORYBOARD_ONLY stage: research → original draft → story-matched storyboard → review. Auto video, auto approval, scheduling and public publishing remain disabled by the owner's later decision; ALLOW_PUBLICATION=false.
+- Only deploy to dedicated Cloudflare script ceritexa-content-agent with existing Ceritexa D1 + MEDIAKV bindings and keep secret_text bindings and both Crons unchanged.

@@ -1,5 +1,7 @@
 import {CHANNELS,validate,detectRisk,parseRss,score,parseAI,compareToken,gate,readiness,selectDraftTopic,validateRejection,creativeSimilarity,MAX_REVISION_DEPTH,REJECTION_REASONS,sceneBeats,scenePrompt,MAX_STORYBOARD_SCENES,SCENES_PER_REQUEST,SCENE_IMAGE_DAILY_LIMIT,NICHE_RESEARCH_QUERIES,EDITORIAL_TOPICS,sceneMotionPrompt} from './core.js';
 const utc=()=>new Date().toISOString(),uuid=()=>crypto.randomUUID();
+const STORYBOARD_ONLY_MODE=true; // explicit owner direction: research → draft → storyboard → stop.
+
 const answer=(v,c=200)=>Response.json(v,{status:c,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 const db=(env,q,...params)=>env.DB.prepare(q).bind(...params);
 const row=async(e,q,...p)=>db(e,q,...p).first();
@@ -289,6 +291,7 @@ async function retryRegeneration(e,id){
  return {id,...await createReplacement(e,source,meta.rejection_reason,meta.rejection_note,Number(meta.revision_depth))};
 }
 async function schedule(e,id,s){
+ if(STORYBOARD_ONLY_MODE)throw Error('Mode semi-otomatis berhenti di storyboard: penjadwalan nonaktif.');
  const p=await row(e,'SELECT * FROM posts WHERE id=?',id);
  if(!p||gate(p))throw Error('Konten belum disetujui atau pemeriksaan gagal');
  const date=new Date(s);
@@ -511,6 +514,7 @@ async function providerPublish(e,p){
  return {id:result.id,url:'https://www.youtube.com/watch?v='+result.id};
 }
 async function publish(e){
+ if(STORYBOARD_ONLY_MODE)return {published:0,reason:'storyboard_only_no_publication'};
  if((await isPaused(e))||e.ALLOW_PUBLICATION!=='true')return {published:0,reason:'paused_or_disabled'};
  const posts=await list(e,"SELECT * FROM posts WHERE state='SCHEDULED' AND scheduled_at<=? LIMIT 3",utc());
  let published=0,uncertain=0;
@@ -665,7 +669,7 @@ async function handle(request,e){
  if(method==='GET'&&p==='/api/editor-config')return answer({rejectionReasons:REJECTION_REASONS});
  if(method==='GET'&&p==='/api/readiness')return answer(readiness(e,await isPaused(e)));
  if(method==='GET'&&p==='/api/connections/verify')return answer(await verifyConnections(e));
- if(method==='GET'&&p==='/api/status')return answer({paused:await isPaused(e),publicationEnabled:e.ALLOW_PUBLICATION==='true',mediaReady:!!e.MEDIA,mediaBackend:e.MEDIAKV?'KV':e.MEDIA?'R2':null,aiReady:!!e.AI,facebookReady:!!(e.FB_PAGE_ID&&e.FB_PAGE_ACCESS_TOKEN),panexReady:!!(e.YT_REFRESH_TOKEN_PANEX&&e.YT_CHANNEL_ID_PANEX),herosReady:!!(e.YT_REFRESH_TOKEN_HEROS&&e.YT_CHANNEL_ID_HEROS),channels:CHANNELS});
+ if(method==='GET'&&p==='/api/status')return answer({agentMode:'STORYBOARD_ONLY',videoGenerationEnabled:false,autoPostingEnabled:false,paused:await isPaused(e),publicationEnabled:e.ALLOW_PUBLICATION==='true',mediaReady:!!e.MEDIA,mediaBackend:e.MEDIAKV?'KV':e.MEDIA?'R2':null,aiReady:!!e.AI,facebookReady:!!(e.FB_PAGE_ID&&e.FB_PAGE_ACCESS_TOKEN),panexReady:!!(e.YT_REFRESH_TOKEN_PANEX&&e.YT_CHANNEL_ID_PANEX),herosReady:!!(e.YT_REFRESH_TOKEN_HEROS&&e.YT_CHANNEL_ID_HEROS),channels:CHANNELS});
  if(method==='GET'&&p==='/api/posts')return answer({posts:(await list(e,"SELECT p.*,r.parent_id,r.revision_depth,r.rejection_reason,r.rejection_note,r.regen_state,r.preview_media_key,r.last_error,(SELECT a.action||': '||a.detail FROM audit a WHERE a.entity_id=p.id AND a.action IN ('RENDER_STARTED','RENDER_FAILED','RENDER_COMPLETED') ORDER BY a.at DESC LIMIT 1) AS render_event,(SELECT COUNT(*) FROM video_storyboard vs WHERE vs.post_id=p.id) AS storyboard_count FROM posts p LEFT JOIN draft_reviews r ON r.post_id=p.id ORDER BY p.created_at DESC LIMIT 100")).map(post=>{let planned=0;if(post.format==='VIDEO')try{planned=sceneBeats(post.story,post.channel).length;}catch{}return {...post,planned_scene_count:planned};})});
  if(method==='GET'&&p==='/api/editor-config')return answer({rejectionReasons:REJECTION_REASONS});
  if(method==='GET'&&p==='/api/trends'){const c=url.searchParams.get('channel');if(c&&c!=='all'&&!CHANNELS[c])return answer({error:'Channel tidak dikenal'},400);return answer({trends:await list(e,c&&c!=='all'?"SELECT * FROM trends WHERE channel=? AND region='ID' AND score>=40 ORDER BY created_at DESC LIMIT 30":"SELECT * FROM trends WHERE channel IN ('facebook','panex','heros') AND region='ID' AND score>=40 ORDER BY created_at DESC LIMIT 60",...(c&&c!=='all'?[c]:[]))});}
@@ -708,17 +712,43 @@ async function handle(request,e){
  }
  return answer({error:'Not found'},404);
 }
+
+async function continueStoryboards(e){
+ if(await isPaused(e))return {paused:true};
+ const candidates=await list(e,"SELECT id FROM posts WHERE format='VIDEO' AND state='BLOCKED' ORDER BY created_at DESC LIMIT 3");
+ const outcomes=[];
+ for(const p of candidates){
+  try{
+   const r=await storyboard(e,p.id,true);
+   outcomes.push({id:p.id,created:r.sceneCount,planned:r.plannedCount,ready:r.ready});
+   // Do not attempt any MP4 renderer, neural TTS, provider publishing or auto approval.
+  }catch(err){
+   await audit(e,'STORYBOARD_BATCH_FAILED',p.id,String(err.message||err).slice(0,150));
+   outcomes.push({id:p.id,error:String(err.message||err).slice(0,100)});
+  }
+ }
+ return {mode:'STORYBOARD_ONLY',outcomes};
+}
 export default{
  async fetch(request,e){try{return await handle(request,e);}catch(error){return answer({error:String(error?.message||error).slice(0,240)},400);}},
- async scheduled(event,e,ctx){e=mediaEnv(e);if(!e.DB)return;ctx.waitUntil((async()=>{
-  if(event.cron==='0 0 * * *'){
-   await analytics(e);await strategy(e);await research(e);
-   if(e.ALLOW_DAILY_DRAFTS==='true'&&!(await isPaused(e))){
-    const rotation=[['facebook','TEXT'],['facebook','PHOTO'],['panex','VIDEO'],['facebook','COMIC'],['heros','VIDEO'],['facebook','TEXT'],['panex','VIDEO']];
-    const day=Math.floor(Date.now()/86400000),[channel,format]=rotation[day%rotation.length];
-    await makeDraft(e,channel,format,'');
+ async scheduled(event,e,ctx){
+  e=mediaEnv(e);if(!e.DB)return;
+  ctx.waitUntil((async()=>{
+   if(event.cron==='0 0 * * *'){
+    await research(e); // Indonesia audience niche feeds, with labeled editorial fallback
+    // No automated publishing, scheduling, video generation or approval.
+    if(e.ALLOW_DAILY_DRAFTS==='true'&&!(await isPaused(e))){
+     const rotation=[['facebook','TEXT'],['panex','VIDEO'],['heros','VIDEO'],['facebook','COMIC'],['panex','VIDEO'],['heros','VIDEO'],['facebook','PHOTO']];
+     const day=Math.floor(Date.now()/86400000),[channel,format]=rotation[day%rotation.length];
+     try{
+      const draft=await makeDraft(e,channel,format,'');
+      if(format==='VIDEO')await storyboard(e,draft.id,true);
+     }catch(error){await audit(e,'DRAFT_STORYBOARD_ERROR','',String(error.message||error).slice(0,170));}
+    }
    }
-  }
-  else await publish(e);
- })().catch(async er=>{await audit(e,'CRON_ERROR','',String(er));}));}
+   // Existing 15-minute trigger is repurposed ONLY for completing incomplete storyboard
+   // batches; bounded free-tier image quota prevents uncontrolled calls.
+   if(!(await isPaused(e)))await continueStoryboards(e);
+  })().catch(async error=>{await audit(e,'CRON_ERROR','',String(error.message||error).slice(0,170));}));
+}
 };

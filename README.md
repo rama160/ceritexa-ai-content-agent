@@ -267,3 +267,12 @@ Tombol Logout menunggu jawaban server. Jika koneksi gagal, dashboard tidak akan 
 - Convert to a real moving video **outside** Ceritexa: pilot Google Flow Frames to Video with free browser credits for a few scenes; use local LTX or Wan if a suitable GPU is available. No provider/API keys are connected and no charge authorized.
 - Current automatically generated VIDEO draft is optimized for 85–115-word Shorts. Longer episodes similar to the 7m55s reference can be planned from a longer owner-edited script up to 16k characters (up to 128 defensive scenes), with 12 new AI images/day guard. A future long-form script writer and image-to-video editor require separate approval.
 - Legacy GitHub renderer has no automatic trigger; manual only if user explicitly selects YES on its workflow. Current default never calls it.
+
+## v1.8.1 — Dashboard v3 siap digunakan
+Ceritexa Studio memakai empat halaman ringkas: Home (ringkasan), Draft (tab Review dan Disetujui; draft REJECTED tidak masuk daftar aktif), Analitik (metrik asli saja), dan Tren (riset genre Indonesia tiap channel). Tidak ada panel kesiapan integrasi yang memenuhi layar. Situs dan PWA memakai dashboard yang sama.
+
+### Sesi login
+Masukkan ADMIN_TOKEN Ceritexa satu kali melalui halaman login. Server menetapkan cookie sesi privat HttpOnly, Secure, SameSite=Strict dan hanya hash token sesi disimpan di tabel D1 admin_sessions. Tutup/buka ulang PWA atau refresh halaman tidak menghapus login selama sesi masih sah. Logout mengakhiri sesi di database dan browser. Batas keamanan rolling maksimal 365 hari, dapat kedaluwarsa/dicabut, dan browser menghapus cookie jika pengguna menghapus data situs.
+
+### Pengujian
+GitHub CI run 40507264663 hijau setelah 40/40 tes, mencakup mode storyboard-only, UI empat halaman, login, logout dan aturan media privat. PWA shell cache versi 1.8.1 akan otomatis memperbarui aplikasi terpasang ketika tersambung internet. Analitik tetap menampilkan “belum ada data” bila platform belum menyediakan metrik; tidak mengarang view.

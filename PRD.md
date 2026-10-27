@@ -1,4 +1,4 @@
-# PRD — Ceritexa AI Content Agent 1.7.1
+# PRD — Ceritexa AI Content Agent 1.8.0
 Tanggal: 25 Oktober 2026 | Status: IMPLEMENTASI BERTAHAP
 
 ## Produk, pemilik dan batasan
@@ -128,3 +128,12 @@ Tests + build green, Cloudflare bound and deploy, admin denied without token, po
 - Explicit authenticated:false from /api/auth/me requires reauthentication; failed network fetch indicates a network/service problem, not logout.
 - Logout is successful only after the dedicated Worker confirms revocation. When offline surface an error and retain the session instead of showing false success.
 - No plaintext credential caching, background public publishing or changes to Facebook/YouTube tokens.
+
+
+## v1.8.0 — Semi-automatic creative development, stop at storyboard
+- Pipeline: research channel-local niche topics for Indonesian audience → generate fully original story draft → calculate variable scenes from actual narration → generate and store per-scene storyboard artwork and prompts → owner reviews/exports. END.
+- NEVER initiate image-to-video, FFmpeg/video renderer, neural narration, scheduling or provider publishing without a separately approved later product phase. Legacy renderer workflow remains disabled except explicit manual YES.
+- Trends page splits Facebook Ceritexa, Panex, Heros. Only in-scope niche news/ideas are shown with source provenance and topical relevance; Google News is an inspiration signal, NOT a numeric popularity measure. Clearly mark editorial fallback as not a live trend.
+- Owner can copy action/dialogue movement prompts, download private storyboard frames and export metadata JSON. Paid APIs are OFF. Visual objective is realistic films similar to supplied ~8-minute restaurant drama, but actual animated video generation is done through a human-chosen external tool.
+- Support manually written/edited long narrative up to 16k characters; scene count dynamic up to defensive 128 with storage indices 0..255. The automatic draft writer is still optimized for Shorts and must not promise 8-minute narrative generation.
+- Free tier respect: up to 3 AI images/request, 12 newly generated storyboard frames/day, saved progress; never shorten the number of scenes to fit quota.

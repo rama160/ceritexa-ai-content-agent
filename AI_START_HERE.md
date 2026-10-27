@@ -1,5 +1,5 @@
 # AI START HERE — Ceritexa canonical rules
-Version 1.7.1 — 2026-10-26
+Version 1.8.0 — 2026-10-26
 
 1. Always read this file, PHASE.md, CHANGELOG.md, PRD.md and ARSITEKTUR.md before work.
 2. Edit existing owner modules rather than writing similar/duplicate files; do not add suffixes *_fixed, *_new, _v2.
@@ -99,3 +99,15 @@ Version 1.7.1 — 2026-10-26
 86. CI must test reconnect, explicit server-confirmed logout, repeated /api/auth/me, CSRF and GitHub Bearer compatibility. Verify latest Ceritexa Worker serves 100% traffic, publication OFF and 6 secrets intact. Real owner-device login remains an owner acceptance check.
 
 87. v1.7.1 final deploy verification (2026-10-26): active Ceritexa-only Worker source includes original four-page design, secure sessions, disconnected overlay, auto reconnect and confirmed logout; GitHub CI #210 on the docs branch commit passed. PWA service worker CACHE now ceritexa-public-shell-v1.7.1 to refresh installed Android shell. Do not substitute GitHub Pages hosting for this Worker or change unrelated deployments.
+
+
+## v1.8.0 — OWNER MODE: STORYBOARD ONLY (2026-10-27)
+- The owner has explicitly stopped the agent BEFORE video generation. Keep `STORYBOARD_ONLY_MODE=true` inside existing src/index.js. Cron is limited to Indonesia niche discovery, original draft creation and up to 3 images per resumable storyboard call, respecting 12 new image creations/day. No automated MP4, voice synthesis, provider posting or scheduling.
+- Existing GitHub render-video.yml has NO schedule/push trigger. Legacy motion-comic renderer only runs after manual workflow_dispatch with `legacy_render=YES`. Do not silently restore scheduled/push rendering.
+- Keep social publishing disabled regardless of ALLOW_PUBLICATION: existing publish() returns storyboard_only_no_publication, and owner scheduling API is blocked. Old approved/MP4 drafts must remain intact; no deletion or forced re-render.
+- Trend research is NOT a global Google Trends feed. `NICHE_RESEARCH_QUERIES` in src/core.js scopes Google News RSS to Indonesian drama/family/life (facebook and panex) or original superhero/fantasy-related film/genre signals (heros). Filter `score>=40`, `channel`, `region=ID` at storage and API, do not copy other channel's topics. Headlines are editorial inspiration, NOT measured audience viral rankings; fallback topics label `editorial_idea_not_live`.
+- Existing migrations/0006_niche_trends.sql added channel/region on the SAME trends table, without deleting 20 former generic trend records. Existing migrations/0007_longform_storyboard.sql expands SAME storyboard constraint to 0..255, preserving all 6 existing scene rows. Technical maximum MAX_STORYBOARD_SCENES=128 is a safety ceiling, never the desired scene count. Original narrative words are not dropped. Owner may edit drafts with up to 16,000 characters to support longer story episodes. Short-video AI draft generation still primarily writes 85–115 words; do NOT claim it auto-generates an 8-minute episode until long-form generator is implemented.
+- Existing src/core.js sceneMotionPrompt() supplies human-action, character consistency, natural-expression and camera prompts for EXTERNAL image-to-video. Protected storyboard package API provides per-scene original narration, image path, image prompt and motion prompt; installed dashboard offers Copy Prompt, Download Image and Export Storyboard JSON. No paid API integration or token/user transfer.
+- Video reference uploaded by owner: 475.03s, H264/AAC, 480×852 vertical, multiple realistic restaurant-drama scenes and character dialogue/action. This is full AI/live-action-looking motion, NOT the same as previous FFmpeg pan/zoom motion comic. Accurate product promise: STORYBOARD + human-chosen external image-to-video only.
+- Google Flow has a free browser daily-credit tier (check current eligibility/rights), NOT a free programmable video API for Worker; LTX-2.5 and Wan 2.2 are locally runnable open-weight alternatives requiring powerful GPUs; do NOT auto-connect or incur costs.
+- Preserve v3 4-page dashboard, secure persistent owner login cookie (never localStorage of ADMIN_TOKEN), hidden rejected drafts, review/approved tabs, real analytics, and all separate Cloudflare projects.

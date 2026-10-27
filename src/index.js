@@ -609,7 +609,7 @@ function appIcon(size){
 }
 // All shell resources public. Never cache /api, bearer headers, story/media responses or admin secrets.
 const serviceWorkerScript=`'use strict';
-const CACHE='ceritexa-public-shell-v1.7.1';
+const CACHE='ceritexa-public-shell-v1.8.1';
 const SHELL=['/','/manifest.webmanifest','/icon-192.svg','/icon-512.svg','/icon-96.jpg'];
 self.addEventListener('install',event=>{
  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting()));

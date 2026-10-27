@@ -90,7 +90,7 @@ export function parseAI(result){
  for(const k of ['title','story','caption','imagePrompt'])if(typeof obj[k]!=='string'||!obj[k].trim())throw Error('JSON AI field '+k+' tidak valid');
  if(obj.story.length<100)throw Error('Cerita terlalu pendek');
  if(detectRisk(Object.values(obj).join(' ')))throw Error('Hasil AI mengandung IP pihak ketiga');
- return {title:obj.title.slice(0,100),story:obj.story.slice(0,6500),caption:obj.caption.slice(0,2000),imagePrompt:obj.imagePrompt.slice(0,1000)};
+ return {title:obj.title.slice(0,100),story:obj.story.slice(0,16000),caption:obj.caption.slice(0,2000),imagePrompt:obj.imagePrompt.slice(0,1000)};
 }
 export function compareToken(a,b){
  a=String(a||'');b=String(b||'');let diff=a.length===b.length?0:1;
@@ -166,7 +166,7 @@ export function creativeSimilarity(a,b){
  * punctuation, action and pacing; the complete source story is preserved word-for-word.
  * A technical safety ceiling prevents pathological Shorts prompts, NOT a fixed shot count.
  */
-export const MAX_STORYBOARD_SCENES=24;
+export const MAX_STORYBOARD_SCENES=128;
 export const SCENE_IMAGE_DAILY_LIMIT=12;
 export const SCENES_PER_REQUEST=3;
 const NARRATIVE_TURNS=/^(?:tiba-tiba|mendadak|namun|tetapi|akhirnya|kemudian|selanjutnya|lantas|ternyata|seketika|sementara|ketika|setelah|sebelum|keesokan|paginya|malamnya|justru|lalu|begitu)\b/i;

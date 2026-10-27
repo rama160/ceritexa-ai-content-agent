@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {CHANNELS,validate,detectRisk,parseRss,score,parseAI,compareToken,gate,readiness,selectDraftTopic,EDITORIAL_TOPICS,validateRejection,creativeSimilarity,MAX_REVISION_DEPTH,REJECTION_REASONS,sceneBeats,scenePrompt,MAX_STORYBOARD_SCENES,SCENE_IMAGE_DAILY_LIMIT,SCENES_PER_REQUEST} from '../src/core.js';
+import {CHANNELS,validate,detectRisk,parseRss,score,parseAI,compareToken,gate,readiness,selectDraftTopic,EDITORIAL_TOPICS,validateRejection,creativeSimilarity,MAX_REVISION_DEPTH,REJECTION_REASONS,sceneBeats,scenePrompt,MAX_STORYBOARD_SCENES,SCENE_IMAGE_DAILY_LIMIT,SCENES_PER_REQUEST,sceneMotionPrompt,NICHE_RESEARCH_QUERIES} from '../src/core.js';
 test('kanal terisolasi',()=>{assert.match(CHANNELS.panex.topic,/keluarga/);assert.match(CHANNELS.heros.topic,/superhero/);assert.throws(()=>validate('panex','TEXT'));assert.equal(validate('facebook','PHOTO'),true)});
 test('mengurai RSS',()=>{const x='<item><title><![CDATA[Drama &amp; Keluarga]]></title><link>https://example.org/a</link></item>';assert.equal(parseRss(x)[0].topic,'Drama & Keluarga')});
 test('menolak IP eksternal',()=>{assert.ok(detectRisk('Batman'));assert.equal(score('Marvel hero','heros'),0)});
@@ -237,8 +237,8 @@ test('video draft review never offers approve while blocked and uses real MP4 me
  assert.match(html,/x.state!=='PENDING_REVIEW'\?'disabled'/);
  assert.match(html,/\/api\/media\//);
  assert.match(html,/Buat storyboard/);
- assert.match(html,/Render ulang/);
- assert.match(html,/case 'upgrade'/);
+ assert.match(html,/Ekspor storyboard/);
+ assert.match(html,/case 'export-storyboard'/);
 });
 
 test('renderer cannot report COMPLETED unless MP4 has been verified in D1',async()=>{
@@ -509,7 +509,7 @@ test('approved Ceritexa v3 is real four-page, hiding rejected drafts and no inte
  assert.match(page,/Perlu review/);assert.match(page,/Disetujui/);
  assert.match(page,/p\.state==='PENDING_REVIEW'\|\|p\.state==='BLOCKED'/);
  assert.match(page,/case 'submit-reject':/);
- assert.match(page,/p\.state==='APPROVED'/);
+ assert.match(page,/const approved=/);
  assert.ok(!page.includes('Kesiapan Integrasi'));
  assert.match(page,/\/api\/auth\/me/);
  assert.match(page,/\/api\/auth\/logout/);
@@ -609,4 +609,50 @@ test('offline network failures must not be misreported as logout; sign-out requi
  assert.match(js,/addEventListener\('online',\(\)=>\{if\(\$\('cxOffline'\)/);
  assert.match(page,/data-page="home"/);
  assert.match(page,/data-page="analytics"/);
+});
+
+test('storyboard-only mode stops automatic video generation, scheduling and publishing',()=>{
+ const index=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
+ const workflow=readFileSync(new URL('../.github/workflows/render-video.yml',import.meta.url),'utf8');
+ assert.match(index,/const STORYBOARD_ONLY_MODE=true/);
+ assert.match(index,/async function continueStoryboards/);
+ assert.match(index,/if\(STORYBOARD_ONLY_MODE\)return \{published:0/);
+ assert.match(index,/if\(STORYBOARD_ONLY_MODE\)throw Error/);
+ assert.ok(!workflow.includes('schedule:'));
+ assert.ok(!workflow.includes('    branches: [main]'));
+ assert.match(workflow,/legacy_render/);
+ assert.match(workflow,/inputs\.legacy_render == 'YES'/);
+ assert.match(index,/STORYBOARD_ONLY/);
+});
+test('Indonesia niche research data is scoped by Facebook, Panex, Heros and labeled correctly',()=>{
+ const core=readFileSync(new URL('../src/core.js',import.meta.url),'utf8');
+ const index=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
+ const migration=readFileSync(new URL('../migrations/0006_niche_trends.sql',import.meta.url),'utf8');
+ assert.match(core,/NICHE_RESEARCH_QUERIES/);
+ assert.match(index,/news\.google\.com\/rss\/search/);
+ assert.match(index,/ceid=ID:id/);
+ assert.match(index,/editorial_idea_not_live/);
+ assert.match(index,/RESEARCH_NICHE/);
+ assert.match(index,/channel=\? AND region='ID'/);
+ assert.match(migration,/ALTER TABLE trends ADD COLUMN channel/);
+ assert.match(migration,/ALTER TABLE trends ADD COLUMN region/);
+ assert.match(index,/data-trend-channel/);
+ assert.match(index,/riset niche/i);
+});
+test('storyboards export motion prompts and long episode narration without automatic video',()=>{
+ const core=readFileSync(new URL('../src/core.js',import.meta.url),'utf8');
+ const index=readFileSync(new URL('../src/index.js',import.meta.url),'utf8');
+ const migration=readFileSync(new URL('../migrations/0007_longform_storyboard.sql',import.meta.url),'utf8');
+ const story=Array.from({length:900},(_,i)=>['Seorang','penjual','makanan','berjuang','memperbaiki','hidup','dan','keluarganya'][i%8]).join(' ');
+ const beats=sceneBeats(story,'panex');
+ assert.ok(beats.length>24);
+ assert.ok(beats.length<=MAX_STORYBOARD_SCENES);
+ assert.equal(beats.map(x=>x.beat).join(' '),story);
+ assert.match(sceneMotionPrompt({channel:'panex'},beats[0]),/natural blinking/);
+ assert.match(index,/async function storyboardPackage/);
+ assert.match(index,/data-action="copy-motion"/);
+ assert.match(index,/case 'export-storyboard'/);
+ assert.match(index,/imagePath/);
+ assert.match(migration,/BETWEEN 0 AND 255/);
+ assert.match(index,/\\d\{1,3\}/);
 });

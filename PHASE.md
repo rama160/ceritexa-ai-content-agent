@@ -1,4 +1,4 @@
-# PHASE — Ceritexa AI Content Agent v1.8.0
+# PHASE — Ceritexa AI Content Agent v1.8.1
 Updated: 2026-10-26 (WITA). Source of truth: test evidence, not feature claims.
 
 | Phase | Status | Verifikasi |
@@ -176,3 +176,11 @@ Owner reports first three setup tasks completed. Remaining Facebook and two YouT
 - D1 long narration storage constraint expanded from 0..63 to 0..255 with migration 0007; before count 6, after count 6. sceneBeats() protective ceiling now 128, user-edited story cap 16k. Automatic writer remains Shorts-focused; do not claim long-form auto authoring yet.
 - Free video candidates researched: Google Flow has 50 daily browser credits on its free tier, but not a free API; Wan 2.2 open source with high GPU memory, LTX-2.5 open weights with local GPU requirements. External clip generation NOT connected or charged.
 - Tests/deployment state must be independently verified; no user draft/media deleted or auto published.
+
+## v1.8.1 — Approved v3 dashboard CI and safe session integration (2026-10-27)
+- Re-examined GitHub src/index.js live source: four separate Home/Draft/Analitik/Tren navigation controls, hidden REJECTED drafts in Review/Disetujui, no Kesiapan Integrasi UI, and real D1-backed trends/metrics. Current workflow preserves owner-approved storyboard-only operation.
+- Inspected GitHub Actions run 40502404689: code compilation PASSED, 39/40 tests passed, final test failed only because it matched literal HTML attribute quotes in the JSON-escaped Worker source string. Changed existing tests/core.test.js to decode production page HTML and assert copy-motion, four navigation controls, no readiness clutter and no localStorage. Subsequent GitHub CI run 40507264663 COMPLETED SUCCESS.
+- Refreshed the installed public PWA shell cache from v1.7.1 to v1.8.1 without allowing API/private media/token caching. No special login token storage added.
+- Persistent owner session implementation already uses D1 admin_sessions/admin_login_limits and SHA-256-hashed server-side opaque cookie, SameSite=Strict/Secure/HttpOnly, /api/auth/me on refresh, and a server-confirmed Logout. Security timeout is rolling up to 365 days; sessions can expire or be revoked for security. Browser test without owner's actual login remains to be confirmed on device.
+- Source and management-plane verification confirmed dedicated ceritexa-content-agent script serving 100% with four-page code and cookie session; six existing Cloudflare secrets, two Crons and ALLOW_PUBLICATION=false preserved. Owner data not reset.
+- Publishing/scheduling/video auto-operations are OFF under STORYBOARD_ONLY, irrespective of legacy API methods and prior historical docs. No other Worker touched. CI re-check after final cache/version updates required before declaring final green.

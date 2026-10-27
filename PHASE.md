@@ -1,4 +1,4 @@
-# PHASE — Ceritexa AI Content Agent v1.7.1
+# PHASE — Ceritexa AI Content Agent v1.8.0
 Updated: 2026-10-26 (WITA). Source of truth: test evidence, not feature claims.
 
 | Phase | Status | Verifikasi |
@@ -166,3 +166,13 @@ Owner reports first three setup tasks completed. Remaining Facebook and two YouT
 - All changes confined to canonical src/index.js and tests/core.test.js; no extra Worker, migration, paid service or change to Nusa Penida Experiences / Spenva.
 
 - Final v1.7.1 management verification: isolated ceritexa-content-agent current version serving 100% traffic; Home, Draft, Analitik, Tren, hashed owner session tables and online retry confirmed in deployed source. Six original secrets and two Worker Cron triggers preserved; ALLOW_PUBLICATION=false; eight original posts unchanged. GitHub CI #210 completed successfully on all v1.7.1 doc/source changes before PWA offline shell cache bump. New cache version 1.7.1 ensures installed PWA receives updated offline shell on service worker update. Owner's actual phone still needs manual confirmation.
+
+
+## v1.8.0 — Storyboard-only semi-autonomous pivot, 2026-10-27
+- Owner supplied reference video: visually inspected frames across 475-second vertical 480×852 H264/AAC restaurant-character drama with recurring actors, movements and subtitles. The prior FFmpeg motion comic cannot achieve acting, physical motion or lip-synced dialogue. User requested STOP automatic pipeline at adaptive storyboard and identify external I2V providers.
+- GitHub legacy renderer auto-trigger removed: no schedule, no push; manual workflow dispatch requires YES confirmation. Worker hard-stop guard disables publish and schedule. Daily cron researches topical niche, optionally prepares a draft and storyboard; existing 15min cron continues only incomplete storyboards while respecting 12-image/day budget.
+- D1 trends schema added channel+region with migration 0006, old generic rows left unscoped (not shown), 18 channel-specific editorial seeds preloaded as editorial_idea_not_live while fresh Google News RSS niche queries fill future runs.
+- User can review/download each frame and motion prompt; JSON metadata packaged through protected API without connecting to any paid provider. v3 Home/Draft/Analytics/Trends UX and durable owner session unchanged.
+- D1 long narration storage constraint expanded from 0..63 to 0..255 with migration 0007; before count 6, after count 6. sceneBeats() protective ceiling now 128, user-edited story cap 16k. Automatic writer remains Shorts-focused; do not claim long-form auto authoring yet.
+- Free video candidates researched: Google Flow has 50 daily browser credits on its free tier, but not a free API; Wan 2.2 open source with high GPU memory, LTX-2.5 open weights with local GPU requirements. External clip generation NOT connected or charged.
+- Tests/deployment state must be independently verified; no user draft/media deleted or auto published.

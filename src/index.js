@@ -242,7 +242,7 @@ async function edit(e,id,data){
  const p=await row(e,'SELECT * FROM posts WHERE id=?',id);
  if(!p||!['PENDING_REVIEW','BLOCKED'].includes(p.state))throw Error('Hanya draft belum disetujui yang dapat diedit');
  const title=String(data.title??p.title).trim().slice(0,100);
- const story=String(data.story??p.story).trim().slice(0,6500);
+ const story=String(data.story??p.story).trim().slice(0,16000);
  const caption=String(data.caption??p.caption).trim().slice(0,2000);
  if(!title||story.length<100||!caption)throw Error('Judul/caption wajib dan cerita minimal 100 karakter');
  if(detectRisk(title+' '+story+' '+caption))throw Error('Konten berisiko IP atau menyesatkan');
@@ -680,7 +680,7 @@ async function handle(request,e){
   const packMatch=p.match(/^\/api\/posts\/([0-9a-f-]{36})\/storyboard-package$/);if(packMatch)return answer(await storyboardPackage(e,packMatch[1]));
   const storyboardMatch=p.match(/^\/api\/posts\/([0-9a-f-]{36})\/storyboard$/);
   if(storyboardMatch)return answer(await storyboard(e,storyboardMatch[1],false));
-  const sceneMatch=p.match(/^\/api\/posts\/([0-9a-f-]{36})\/storyboard\/(\d{1,2})\/image$/);
+  const sceneMatch=p.match(/^\/api\/posts\/([0-9a-f-]{36})\/storyboard\/(\d{1,3})\/image$/);
   if(sceneMatch)return storyboardImage(e,sceneMatch[1],Number(sceneMatch[2]));
  }
  if(method==='GET'&&p.startsWith('/api/media/'))return media(e,p.slice('/api/media/'.length));

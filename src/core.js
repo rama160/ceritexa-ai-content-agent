@@ -46,6 +46,15 @@ export const EDITORIAL_TOPICS=Object.freeze({
   'Pahlawan penjaga langit menghadapi musuh yang ternyata membutuhkan pertolongan'
  ]
 });
+/** Indonesia/Indonesian audience-specific niche discovery.
+ * Google News RSS returns related headlines, NOT measured social virality.
+ * Fallback editorial themes are clearly labeled as not live trends.
+ */
+export const NICHE_RESEARCH_QUERIES=Object.freeze({
+ facebook:'("kisah inspiratif" OR "drama keluarga" OR "perjuangan hidup" OR "kebaikan masyarakat") when:7d',
+ panex:'("kisah keluarga" OR "kisah perjuangan" OR "pengorbanan ibu" OR "usaha kecil") when:7d',
+ heros:'("film superhero" OR "komik pahlawan" OR "film fantasi" OR "science fiction Indonesia") when:7d'
+});
 const CHANNEL_KEYWORDS=Object.freeze({
  facebook:['ibu','ayah','anak','keluarga','kehidupan','kisah','cerita','drama','sahabat','persahabatan','sekolah','warung','pekerja','perjuangan','cinta','misteri','tetangga','kebaikan','usaha','korban','harapan'],
  panex:['ibu','ayah','anak','keluarga','kehidupan','kisah','cerita','drama','sahabat','persahabatan','sekolah','warung','pekerja','perjuangan','cinta','teman','hubungan','usaha','pengorbanan','harapan'],

@@ -1,4 +1,4 @@
-# ARSITEKTUR 1.7.1 — Ceritexa Studio
+# ARSITEKTUR 1.8.0 — Ceritexa Studio
 Single isolated Cloudflare Worker `ceritexa-content-agent`, D1 `ceritexa-content-db`. Optional private R2 `ceritexa-content-media` after owner enables storage.
 
 ```mermaid
@@ -106,3 +106,12 @@ Cloudflare Cron 00:00 UTC (08:00 WITA) executes metrics refresh, strategy assess
 - PWA startup calls existing GET /api/auth/me with same-origin cookies and no cache. Explicit authenticated:false requests login; a failed network fetch opens a dedicated offline/reconnect view without clearing credentials or inferring revocation. The online browser event retries the server session check.
 - Logout awaits protected POST /api/auth/logout with authenticated:false before clearing UI state. Network failure leaves the session active and shows an error. Server deletes matching hashed session row and expires __Host-ceritexa_session.
 - No additional persistent store, Worker, table, OAuth provider or paid service. Renewable one-year security sessions continue in the dedicated Ceritexa Worker.
+
+
+## v1.8.0 — Storyboard-only isolation
+- Existing src/index.js: STORYBOARD_ONLY_MODE=true, scheduled() daily niche research + draft/storyboard batch; 15-minute Cron continues incomplete storyboard only. publish() returns nonpublishing result and schedule() throws in storyboard mode. No background video generation.
+- Existing GitHub .github/workflows/render-video.yml: only manual workflow_dispatch requiring legacy_render=YES. Zero schedule/push events. Existing renderer remains historical/manual and does not represent the product's semi-automatic default path.
+- Existing src/core.js: NICHE_RESEARCH_QUERIES, score(), sceneBeats(story,channel), sceneMotionPrompt(post,scene). Inputs stay original, channel-specific and user-editable.
+- D1 migration 0006 added channel/region to trends, leaving legacy unscoped topics archived. Query channel+ID+score threshold. Google News RSS niche headlines carry source google_news_niche_id, ideas without a matching feed carry source editorial_idea_not_live. Data is not a measured social-trending chart.
+- D1 migration 0007 evolves the existing video_storyboard scene-index CHECK 0..255 with preserved rows; long narration scene max=128 is defensive. JSON storyboard-package endpoint is admin cookie/Bearer protected and includes private per-scene asset paths, narrative beat, illustration prompt and external video motion prompt.
+- Installed four-page dashboard has channel-specific trend tabs; storyboard gallery presents per-shot copy prompt, download image and JSON export. Never disclose ADMIN_TOKEN, secret values, or publicly expose KV media links.
